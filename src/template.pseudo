@@ -1,0 +1,44 @@
+// libraries (vector, thread, random, chrono, memory)
+use vector; // vector, range
+
+
+void log_vector(vector<int32> &target) {
+    for (const auto &n : target) {
+        console.log(n);
+    }
+}
+
+
+void main() {
+    // Single line comment
+
+    /* Multi line comment
+    Hello world
+    abcd
+    1234 */
+
+    console.clear();
+
+    bool b = true;
+    uint8 u = 128;
+    float32 z = 25 / 4; // always float division
+
+    int32 product, sum;
+    product = 1;
+    sum = 0;
+
+    for (const auto &i : range(0, 10)) {
+        product *= i;
+        sum++;
+    }
+
+    console.log("Sum: " + sum as string);
+    console.log(f"Product: ${product}");
+
+    vector<int32> numbers = {0, 10, 26, 2};
+    numbers.push_back(27);
+    log_vector(numbers);
+
+    string greet = "world";
+    console.log(f"Hello ${greet}");
+}
