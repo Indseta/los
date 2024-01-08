@@ -1,8 +1,9 @@
-#include <program/terminal.h>
+#include <program/console.h>
+#include <program/lexer.h>
 
-#include <iostream>
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <regex>
 #include <string>
 #include <sstream>
@@ -26,67 +27,14 @@ std::string get_source(std::string path) {
 }
 
 
-enum TokenType {
-    KEYWORD,
-    IDENTIFIER,
-    OPERATOR,
-    PUNCTUATION,
-    INTEGER_LITERAL,
-    UNKNOWN,
-};
-
-
-struct Token {
-    TokenType type;
-    std::string value;
-};
-
-
-std::ostream& operator<<(std::ostream &os, const Token &token) {
-    switch (token.type) {
-        case KEYWORD:
-            os << "(KEYWORD): " << token.value;
-            break;
-        case IDENTIFIER:
-            os << "(IDENTIFIER): " << token.value;
-            break;
-        case OPERATOR:
-            os << "(OPERATOR): " << token.value;
-            break;
-        case PUNCTUATION:
-            os << "(PUNCTUATION): " << token.value;
-            break;
-        case INTEGER_LITERAL:
-            os << "(INTEGER_LITERAL): " << token.value;
-            break;
-        case UNKNOWN:
-        default:
-            os << "(UNKNOWN): " << token.value;
-            break;
-    }
-
-    return os;
-}
-
-
-std::vector<Token> lex(const std::string &source) {
-    std::vector<Token> tokens;
-
-    return tokens;
-}
-
-
-struct Node {};
-
-
 int main() {
     cmd::clear();
 
     // Start program
     auto start = std::chrono::high_resolution_clock::now();
 
-    const std::string src = get_source("main.pseudo");
-    const auto tokens = lex(src);
+    const std::string src = get_source("main.sf");
+    const auto tokens = Lexer::lex(src);
 
     for (const auto &token : tokens) {
         std::cout << token << '\n';
@@ -102,7 +50,7 @@ int main() {
 
     // Flush and pause console
     cmd::ostream::fbuffer();
-    cmd::pause();
+    // cmd::pause();
 
     return 0;
 }

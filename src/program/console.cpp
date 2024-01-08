@@ -1,4 +1,4 @@
-#include <program/terminal.h>
+#include <program/console.h>
 
 
 void cmd::clear() {
