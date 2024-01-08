@@ -7,8 +7,31 @@ const char *Lexer::operators[] = {"=", "+", "-", "*", "/"};
 const char Lexer::punctuators[] = {';', '.', ',', '{', '}', '[', ']', '(', ')'};
 
 
-const std::vector<Lexer::Token> Lexer::lex(const std::string &source) {
-    std::vector<Token> tokens;
+Lexer::Lexer(const std::string source_path) {
+    const std::string source = get_source(source_path);
+    tokens = lex(source);
+}
+
+
+const std::string Lexer::get_source(const std::string &source_path) const {
+    std::ifstream file("../src/" + source_path);
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file" << '\n';
+        return "";
+    }
+
+    std::ostringstream ss;
+    ss << file.rdbuf();
+
+    file.close();
+
+    return ss.str();
+}
+
+
+const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
+    std::vector<Lexer::Token> tokens;
     Token current_token;
 
     for (int i = 0; i < source.length(); ++i) {
@@ -22,7 +45,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) {
         // Reset token value
         current_token.value = "";
 
-        // Check if character is a digit (Integer Literal)
+        // Check if character is a digit
         if (std::isdigit(c)) {
             current_token.value += c;
             while (i + 1 < source.length() && std::isdigit(source[i + 1])) {
@@ -31,7 +54,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) {
             current_token.category = INTEGER_LITERAL;
         }
 
-        // Check if character is a word (Keyword or Identifier)
+        // Check for word
         else if (std::isalpha(c)) {
             current_token.value += c;
             while (i + 1 < source.length() && std::isalnum(source[i + 1])) {
@@ -44,7 +67,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) {
             }
         }
 
-        // Check for Operators
+        // Check for operators
         else {
             bool found = false;
             current_token.value += c;
@@ -56,7 +79,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) {
                 }
             }
 
-            // Check for Punctuators
+            // Check for punctuators
             if (!found) {
                 for (const auto& punc : punctuators) {
                     if (c == punc) {
@@ -95,7 +118,7 @@ const std::string Lexer::category_to_string(const Lexer::Category &category) {
 }
 
 
-const bool Lexer::is_keyword(const std::string &value) {
+const bool Lexer::is_keyword(const std::string &value) const {
     for (const auto &keyword : keywords) {
         if (value == keyword) {
             return true;
@@ -110,4 +133,9 @@ std::ostream& operator<<(std::ostream &os, const Lexer::Token &token) {
     os << "(" << Lexer::category_to_string(token.category) << "): '" << token.value << "'";
 
     return os;
+}
+
+
+const std::vector<Lexer::Token>& Lexer::get_tokens() const {
+    return tokens;
 }

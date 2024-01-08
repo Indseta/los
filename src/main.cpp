@@ -33,10 +33,8 @@ int main() {
     // Start program
     auto start = std::chrono::high_resolution_clock::now();
 
-    const std::string src = get_source("main.sf");
-    const auto tokens = Lexer::lex(src);
-
-    for (const auto &token : tokens) {
+    const auto lexer = Lexer("main.sf");
+    for (const auto &token : lexer.get_tokens()) {
         std::cout << token << '\n';
     }
 

@@ -2,7 +2,9 @@
 
 
 #include <cctype>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -32,13 +34,18 @@ class Lexer {
         };
 
     public:
-        static const std::vector<Token> lex(const std::string &source);
-        static const std::string category_to_string(const Category &category);
+        Lexer(const std::string source_path);
+
+        const std::vector<Token>& get_tokens() const;
 
     private:
-        Lexer();
+        const std::string get_source(const std::string &source_path) const;
+        const std::vector<Token> lex(const std::string &source) const;
 
-        static const bool is_keyword(const std::string &value);
+        const bool is_keyword(const std::string &value) const;
 
+        static const std::string category_to_string(const Category &category);
         friend std::ostream& operator<<(std::ostream &os, const Token &token);
+
+        std::vector<Token> tokens;
 };
