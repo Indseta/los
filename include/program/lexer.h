@@ -10,42 +10,43 @@
 
 
 class Lexer {
-    private:
-        static const char *keywords[];
-        static const char *operators[];
+private:
+    static const char *keywords[];
+    static const char *operators[];
 
-        static const char punctuators[];
+    static const char punctuators[];
 
-        enum Category {
-            PUNCTUATOR,
-            KEYWORD,
-            IDENTIFIER,
-            OPERATOR,
-            INTEGER_LITERAL,
-            STRING_LITERAL,
-            LINE_COMMENT,
-            BLOCK_COMMENT,
-            UNKNOWN,
-        };
+    enum TokenCategory {
+        PUNCTUATOR,
+        KEYWORD,
+        IDENTIFIER,
+        OPERATOR,
+        INTEGER_LITERAL,
+        STRING_LITERAL,
+        LINE_COMMENT,
+        BLOCK_COMMENT,
+        UNKNOWN,
+    };
 
-        struct Token {
-            Category category = Category::UNKNOWN;
-            std::string value = "";
-        };
+    struct Token {
+        TokenCategory category = TokenCategory::UNKNOWN;
+        std::string value = "";
+    };
 
-    public:
-        Lexer(const std::string source_path);
+public:
+    Lexer(const std::string source_path);
 
-        const std::vector<Token>& get_tokens() const;
+    const std::vector<Token>& get_tokens() const;
 
-    private:
-        const std::string get_source(const std::string &source_path) const;
-        const std::vector<Token> lex(const std::string &source) const;
+private:
+    const std::string get_source(const std::string &source_path) const;
+    const std::vector<Token> lex(const std::string &source) const;
 
-        const bool is_keyword(const std::string &value) const;
+    const bool is_keyword(const std::string &value) const;
 
-        static const std::string category_to_string(const Category &category);
-        friend std::ostream& operator<<(std::ostream &os, const Token &token);
+    static const std::string category_to_string(const TokenCategory &category);
 
-        std::vector<Token> tokens;
+    std::vector<Token> tokens;
+
+    friend std::ostream& operator<<(std::ostream &os, const Token &token);
 };

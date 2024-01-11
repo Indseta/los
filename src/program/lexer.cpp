@@ -14,7 +14,7 @@ Lexer::Lexer(const std::string source_path) {
 
 
 const std::string Lexer::get_source(const std::string &source_path) const {
-    std::ifstream file("../src/" + source_path);
+    std::ifstream file(source_path); // "../src/" + source_path
 
     if (!file.is_open()) {
         std::cerr << "Failed to open file" << '\n';
@@ -54,7 +54,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
             current_token.category = INTEGER_LITERAL;
         }
 
-        // Check for word
+        // Check for keyword or identifier
         else if (std::isalpha(c)) {
             current_token.value += c;
             while (i + 1 < source.length() && std::isalnum(source[i + 1])) {
@@ -103,7 +103,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
 }
 
 
-const std::string Lexer::category_to_string(const Lexer::Category &category) {
+const std::string Lexer::category_to_string(const Lexer::TokenCategory &category) {
     switch (category) {
         case PUNCTUATOR: return "punctuator";
         case KEYWORD: return "keyword";
@@ -129,13 +129,13 @@ const bool Lexer::is_keyword(const std::string &value) const {
 }
 
 
+const std::vector<Lexer::Token>& Lexer::get_tokens() const {
+    return tokens;
+}
+
+
 std::ostream& operator<<(std::ostream &os, const Lexer::Token &token) {
     os << "(" << Lexer::category_to_string(token.category) << "): '" << token.value << "'";
 
     return os;
-}
-
-
-const std::vector<Lexer::Token>& Lexer::get_tokens() const {
-    return tokens;
 }
