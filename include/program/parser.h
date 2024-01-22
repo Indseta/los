@@ -10,14 +10,16 @@
 
 
 class Parser {
-private:
-    enum ASTNodeCategory {};
-
+public:
     struct ASTNode {
         virtual ~ASTNode() = default;
     };
 
-    struct VariableDeclaration : ASTNode {
+    struct ExpressionTree : ASTNode {
+        ASTNode expression;
+    };
+
+    struct VariableAssignment : ASTNode {
         std::string type;
         std::string identifier;
         std::unique_ptr<ASTNode> expression;
@@ -32,23 +34,18 @@ private:
     struct NumberLiteral : ASTNode {
         std::string value;
     };
-
-    struct Identifier : ASTNode {
-        std::string name;
+    
+    struct VariableCall : ASTNode {
+        std::string value;
     };
 
-public:
     Parser(const std::string source_path);
 
 private:
-    std::unique_ptr<ASTNode> parse();
-
-    void assign_expr();
-    void add_expr();
-    void mul_expr();
-    void pow_expr();
-    void unary_expr();
-    void primary();
+    void parse();
+    ExpressionTree parse_expression(std::vector<Lexer::Token> &stack);
 
     const Lexer lexer;
+
+    std::vector<ASTNode> ast;
 };

@@ -28,12 +28,12 @@ private:
         UNKNOWN,
     };
 
+public:
     struct Token {
         TokenCategory category = TokenCategory::UNKNOWN;
         std::string value = "";
     };
 
-public:
     Lexer(const std::string source_path);
 
     const std::vector<Token>& get_tokens() const;
