@@ -16,6 +16,7 @@ private:
 
     static const char punctuators[];
 
+public:
     enum TokenCategory {
         PUNCTUATOR,
         KEYWORD,
@@ -28,7 +29,6 @@ private:
         UNKNOWN,
     };
 
-public:
     struct Token {
         TokenCategory category = TokenCategory::UNKNOWN;
         std::string value = "";

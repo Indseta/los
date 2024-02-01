@@ -5,6 +5,7 @@
 
 #include <program/lexer.h>
 #include <program/parser.h>
+#include <program/interpreter.h>
 
 #include <chrono>
 #include <cstring>
@@ -77,6 +78,9 @@ int main(int argc, char *argv[]) {
         auto start = std::chrono::high_resolution_clock::now();
 
         const Parser parser(argv[1]);
+		Interpreter interpreter;
+		interpreter.interpret(parser.ast);
+		interpreter.debug_print();
 
         // End program
         auto end = std::chrono::high_resolution_clock::now();
