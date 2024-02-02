@@ -16,7 +16,7 @@ public:
         virtual ~ASTNode() = default;
     };
 
-    struct ExpressionTree : ASTNode {
+    struct Stack : ASTNode {
         std::unique_ptr<ASTNode> expression;
         void print() const override {
             if (expression) expression->print();
@@ -66,7 +66,9 @@ public:
 
 private:
     void parse();
-    std::unique_ptr<Parser::ExpressionTree> parse_expression(std::vector<Lexer::Token> &stack);
+    std::unique_ptr<ASTNode> parse_expression(std::vector<Lexer::Token> &stack);
+
+	std::unique_ptr<ASTNode> parse_math_expression(std::vector<Lexer::Token> &tokens);
 
     const Lexer lexer;
 

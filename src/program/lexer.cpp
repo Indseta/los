@@ -10,6 +10,9 @@ const char Lexer::punctuators[] = {';', '.', ',', '{', '}', '[', ']', '(', ')'};
 Lexer::Lexer(const std::string source_path) {
     const std::string source = get_source(source_path);
     tokens = lex(source);
+	for (const auto &t : tokens) {
+		std::cout << t << '\n';
+	}
 }
 
 

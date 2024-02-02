@@ -29,34 +29,72 @@ void Parser::parse() {
 }
 
 
-std::unique_ptr<Parser::ExpressionTree> Parser::parse_expression(std::vector<Lexer::Token> &stack) {
-    auto expression_tree = std::make_unique<ExpressionTree>();
+std::unique_ptr<Parser::ASTNode> Parser::parse_expression(std::vector<Lexer::Token> &tokens) {
+    if (tokens.empty()) return nullptr;
 
-    // Assuming the simple case of variable assignment with a binary expression
-    if (stack.size() >= 5 && 
-        stack[0].category == Lexer::TokenCategory::KEYWORD && 
-        stack[1].category == Lexer::TokenCategory::IDENTIFIER && 
-        stack[2].category == Lexer::TokenCategory::OPERATOR && 
-        stack[2].value == "=") {
-        
-        // Create a variable assignment node
+    if (tokens[0].category == Lexer::KEYWORD && tokens[1].category == Lexer::IDENTIFIER && tokens[2].value == "=") {
+		// Variable assignment
         auto var_assign = std::make_unique<VariableAssignment>();
-        var_assign->type = stack[0].value;
-        var_assign->identifier = stack[1].value;
+        var_assign->type = tokens[0].value; // Assuming the first token is the type
+        var_assign->identifier = tokens[1].value; // The variable name
 
-        // Create a binary expression node
-        auto bin_exp = std::make_unique<BinaryExpression>();
-        bin_exp->left = std::make_unique<NumberLiteral>();
-        static_cast<NumberLiteral*>(bin_exp->left.get())->value = stack[3].value;
-        bin_exp->op = stack[4].value;
-        bin_exp->right = std::make_unique<NumberLiteral>();
-        static_cast<NumberLiteral*>(bin_exp->right.get())->value = stack[5].value;
+        // Remove the first three tokens (type, variable, and =) before processing the expression
+        std::vector<Lexer::Token> expressionTokens(tokens.begin() + 3, tokens.end());
+        var_assign->expression = parse_math_expression(expressionTokens);
 
-        var_assign->expression = std::move(bin_exp);
-        expression_tree->expression = std::move(var_assign);
+        return var_assign;
     }
 
-    return expression_tree;
+    return nullptr;
+}
+
+std::unique_ptr<Parser::ASTNode> Parser::parse_math_expression(std::vector<Lexer::Token> &tokens) {
+    std::unique_ptr<ASTNode> expression;
+
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        const auto& token = tokens[i];
+        if (token.category == Lexer::TokenCategory::INTEGER_LITERAL) {
+            if (!expression) {
+                // First number in the expression
+                auto number = std::make_unique<NumberLiteral>();
+                number->value = token.value;
+                expression = std::move(number);
+            } else if (i > 1 && tokens[i - 1].value == "+") {
+                // Create a new binary expression for addition
+                auto addition = std::make_unique<BinaryExpression>();
+                addition->op = "+";
+
+                auto rightNumber = std::make_unique<NumberLiteral>();
+                rightNumber->value = token.value;
+
+                addition->left = std::move(expression);
+                addition->right = std::move(rightNumber);
+
+                expression = std::move(addition);
+            }
+        } else if (token.category == Lexer::TokenCategory::IDENTIFIER) {
+            if (!expression) {
+                // First number in the expression
+                auto number = std::make_unique<VariableCall>();
+                number->value = token.value;
+                expression = std::move(number);
+            } else if (i > 1 && tokens[i - 1].value == "+") {
+                // Create a new binary expression for addition
+                auto addition = std::make_unique<BinaryExpression>();
+                addition->op = "+";
+
+                auto rightNumber = std::make_unique<VariableCall>();
+                rightNumber->value = token.value;
+
+                addition->left = std::move(expression);
+                addition->right = std::move(rightNumber);
+
+                expression = std::move(addition);
+            }
+		}
+    }
+
+    return expression;
 }
 
 

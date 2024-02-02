@@ -3,6 +3,12 @@
 int Interpreter::evaluate(const Parser::ASTNode* node) {
 	if (const auto* num = dynamic_cast<const Parser::NumberLiteral*>(node)) {
 		return std::stoi(num->value);
+	} else if (const auto* num = dynamic_cast<const Parser::VariableCall*>(node)) {
+		if (const auto &x = variables.at(num->value)) {
+			return x;
+		} else {
+			return 0;
+		}
 	} else if (const auto* binExp = dynamic_cast<const Parser::BinaryExpression*>(node)) {
 		int left = evaluate(binExp->left.get());
 		int right = evaluate(binExp->right.get());
@@ -18,12 +24,12 @@ int Interpreter::evaluate(const Parser::ASTNode* node) {
 
 void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::ASTNode>>& ast) {
 	for (const auto& node : ast) {
-        if (const auto* exprTree = dynamic_cast<const Parser::ExpressionTree*>(node.get())) {
-            if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree->expression.get())) {
+        if (const auto* exprTree = dynamic_cast<const Parser::ASTNode*>(node.get())) {
+            if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree)) {
                 int value = evaluate(varAssign->expression.get());
                 variables[varAssign->identifier] = value;
             } else {
-                std::cout << "Unsupported ExpressionTree node type encountered\n";
+                std::cout << "Unsupported Stack node type encountered\n";
             }
         } else {
             std::cout << "Unsupported AST node type encountered\n";
