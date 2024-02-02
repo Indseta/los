@@ -1,7 +1,7 @@
 #include <program/lexer.h>
 
 
-const char *Lexer::keywords[] = {"if", "else", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "string"};
+const char *Lexer::keywords[] = {"if", "else", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "vector"};
 const char *Lexer::operators[] = {"=", "+", "-", "*", "/"};
 
 const char Lexer::punctuators[] = {';', '.', ',', '{', '}', '[', ']', '(', ')'};

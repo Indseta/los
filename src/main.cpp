@@ -1,8 +1,6 @@
 #include <nlohmann/json.hpp>
 #include <whereami/whereami.h>
 
-#include <program/console.h>
-
 #include <program/lexer.h>
 #include <program/parser.h>
 #include <program/interpreter.h>
@@ -54,7 +52,11 @@ const nlohmann::json read_json(const std::string json_path) {
 
 
 int main(int argc, char *argv[]) {
-    // cmd::clear();
+// #ifdef _WIN32
+//     std::system("cls");
+// #else
+//     std::system("clear");
+// #endif
 
     if (argc < 2) {
         std::cout << "Missing required arguments" << '\n';
@@ -86,12 +88,8 @@ int main(int argc, char *argv[]) {
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed = end - start;
 
-        cmd::ostream::newline();
-
+        std::cout << '\n';
         std::cout << "[Done] Program finished in " << elapsed.count() / 1000.0 << " seconds" << '\n';
-
-        // Flush console
-        cmd::ostream::fbuffer();
     }
 
     return EXIT_SUCCESS;
