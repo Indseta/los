@@ -1,15 +1,14 @@
 #include <nlohmann/json.hpp>
 #include <whereami/whereami.h>
 
-#include <program/lexer.h>
-#include <program/parser.h>
-#include <program/interpreter.h>
+#include <program/runtime.h>
 
 #include <chrono>
 #include <cstring>
 #include <istream>
 #include <iostream>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 
@@ -79,10 +78,13 @@ int main(int argc, char *argv[]) {
         // Start program
         auto start = std::chrono::high_resolution_clock::now();
 
-        const Parser parser(argv[1]);
-		Interpreter interpreter;
-		interpreter.interpret(parser.ast);
-		interpreter.debug_print();
+		Runtime runtime;
+		try {
+			runtime.run(argv[1]);
+		} catch (const std::exception &e) {
+			std::cerr << e.what() << '\n';
+			return EXIT_FAILURE;
+		}
 
         // End program
         auto end = std::chrono::high_resolution_clock::now();
