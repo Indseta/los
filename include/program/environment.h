@@ -9,7 +9,7 @@
 
 #include <iostream>
 
-class Runtime {
+class Environment {
 public:
 	void run(const std::string &fp);
 };

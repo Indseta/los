@@ -1,18 +1,18 @@
 #pragma once
 
-
 #include <program/lexer.h>
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
+#include <stack>
 #include <string>
 #include <vector>
-
 
 class Parser {
 public:
     struct ASTNode {
-        virtual void print() const = 0;  // Added print function for debugging
+        virtual void print() const = 0;
         virtual ~ASTNode() = default;
     };
 
@@ -49,6 +49,7 @@ public:
     };
 
     struct NumberLiteral : ASTNode {
+		explicit NumberLiteral(const std::string& val) : value(val) {}
         std::string value;
         void print() const override {
             std::cout << "NumberLiteral(" << value << ")";
@@ -56,22 +57,22 @@ public:
     };
     
     struct VariableCall : ASTNode {
+		explicit VariableCall(const std::string& val) : value(val) {}
         std::string value;
         void print() const override {
             std::cout << "VariableCall(" << value << ")";
         }
     };
 
-    Parser(const std::string source_path);
+    Parser(const Lexer &lexer);
+
+	const std::vector<std::unique_ptr<ASTNode>>& get() const;
 
 private:
-    void parse();
-    std::unique_ptr<ASTNode> parse_expression(std::vector<Lexer::Token> &stack);
+    void parse(const std::vector<Lexer::Token> &lex);
 
+    std::unique_ptr<ASTNode> parse_expression(std::vector<Lexer::Token> &stack);
 	std::unique_ptr<ASTNode> parse_math_expression(std::vector<Lexer::Token> &tokens);
 
-    const Lexer lexer;
-
-public:
     std::vector<std::unique_ptr<ASTNode>> ast;
 };

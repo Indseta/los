@@ -1,7 +1,7 @@
 #include <nlohmann/json.hpp>
 #include <whereami/whereami.h>
 
-#include <program/runtime.h>
+#include <program/environment.h>
 
 #include <chrono>
 #include <cstring>
@@ -78,9 +78,9 @@ int main(int argc, char *argv[]) {
         // Start program
         auto start = std::chrono::high_resolution_clock::now();
 
-		Runtime runtime;
+		Environment environment;
 		try {
-			runtime.run(argv[1]);
+			environment.run(argv[1]);
 		} catch (const std::exception &e) {
 			std::cerr << e.what() << '\n';
 			return EXIT_FAILURE;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <program/source.h>
 
 #include <cctype>
 #include <fstream>
@@ -7,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
 
 class Lexer {
 private:
@@ -34,17 +34,14 @@ public:
         std::string value = "";
     };
 
-    Lexer(const std::string source_path);
+    Lexer(const Source &source);
 
-    const std::vector<Token>& get_tokens() const;
+    const std::vector<Token>& get() const;
 
 private:
-    const std::string get_source(const std::string &source_path) const;
     const std::vector<Token> lex(const std::string &source) const;
-
     const bool is_keyword(const std::string &value) const;
-
-    static const std::string category_to_string(const TokenCategory &category);
+    static const std::string to_string(const TokenCategory &category);
 
     std::vector<Token> tokens;
 

@@ -2,9 +2,11 @@
 use vector; // vector, range
 
 
-void log_vector(vector<i32> &target) {
-    for (const auto &n : target) {
-        System.println(n);
+function void log_vector(vector<i32> &target) {
+	i32 product = 1;
+    for (i in target) {
+        product *= i;
+        sum++;
     }
 }
 
@@ -27,7 +29,7 @@ void main() {
     product = 1;
     sum = 0;
 
-    for (const auto &i : range(0, 10)) {
+    for (i in range(0, 10)) {
         product *= i;
         sum++;
     }

@@ -17,6 +17,6 @@ const std::string Source::read_source(const std::string &fp) {
     return ss.str();
 }
 
-const std::string& Source::get() {
+const std::string& Source::get() const {
 	return raw;
 }

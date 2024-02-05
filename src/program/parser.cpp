@@ -1,21 +1,13 @@
 #include <program/parser.h>
 
-
-Parser::Parser(const std::string source_path) : lexer(source_path) {
-    parse();
-
-    // Debug: Print the AST
-    for (const auto &node : ast) {
-        node->print();
-        std::cout << std::endl;
-    }
+Parser::Parser(const Lexer &lexer) {
+    parse(lexer.get());
 }
 
-
-void Parser::parse() {
+void Parser::parse(const std::vector<Lexer::Token> &lex) {
     std::vector<Lexer::Token> stack;
 
-    for (const auto &token : lexer.get_tokens()) {
+    for (const auto &token : lex) {
         if (token.value == ";") {
             auto expression_tree = parse_expression(stack);
             if (expression_tree) {
@@ -28,17 +20,14 @@ void Parser::parse() {
     }
 }
 
-
 std::unique_ptr<Parser::ASTNode> Parser::parse_expression(std::vector<Lexer::Token> &tokens) {
     if (tokens.empty()) return nullptr;
 
-    if (tokens[0].category == Lexer::KEYWORD && tokens[1].category == Lexer::IDENTIFIER && tokens[2].value == "=") {
-		// Variable assignment
+    if (tokens[0].category == Lexer::KEYWORD && tokens[0].value == "let" && tokens[1].category == Lexer::IDENTIFIER && tokens[2].value == "=") {
         auto var_assign = std::make_unique<VariableAssignment>();
-        var_assign->type = tokens[0].value; // Assuming the first token is the type
-        var_assign->identifier = tokens[1].value; // The variable name
+        var_assign->type = tokens[0].value;
+        var_assign->identifier = tokens[1].value;
 
-        // Remove the first three tokens (type, variable, and =) before processing the expression
         std::vector<Lexer::Token> expressionTokens(tokens.begin() + 3, tokens.end());
         var_assign->expression = parse_math_expression(expressionTokens);
 
@@ -49,60 +38,59 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_expression(std::vector<Lexer::Tok
 }
 
 std::unique_ptr<Parser::ASTNode> Parser::parse_math_expression(std::vector<Lexer::Token> &tokens) {
-    std::unique_ptr<ASTNode> expression;
+    std::stack<std::unique_ptr<ASTNode>> nodes;
+    std::stack<std::string> ops;
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        const auto& token = tokens[i];
-        if (token.category == Lexer::TokenCategory::INTEGER_LITERAL) {
-            if (!expression) {
-                // First number in the expression
-                auto number = std::make_unique<NumberLiteral>();
-                number->value = token.value;
-                expression = std::move(number);
-            } else if (i > 1 && tokens[i - 1].value == "+") {
-                // Create a new binary expression for addition
-                auto addition = std::make_unique<BinaryExpression>();
-                addition->op = "+";
+    auto get_precedence = [](const std::string& op) -> int {
+        if (op == "*" || op == "/") return 2;
+        if (op == "+" || op == "-") return 1;
+        return 0;
+    };
 
-                auto rightNumber = std::make_unique<NumberLiteral>();
-                rightNumber->value = token.value;
+    for (auto& token : tokens) {
+        if (token.category == Lexer::INTEGER_LITERAL) {
+            nodes.push(std::make_unique<NumberLiteral>(token.value));
+        } else if (token.category == Lexer::IDENTIFIER) {
+            nodes.push(std::make_unique<VariableCall>(token.value));
+        } else if (token.category == Lexer::OPERATOR) {
+            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(token.value)) {
+                auto right = std::move(nodes.top());
+                nodes.pop();
+                auto left = std::move(nodes.top());
+                nodes.pop();
 
-                addition->left = std::move(expression);
-                addition->right = std::move(rightNumber);
+                auto op = ops.top();
+                ops.pop();
 
-                expression = std::move(addition);
+                auto expr = std::make_unique<BinaryExpression>();
+                expr->left = std::move(left);
+                expr->op = op;
+                expr->right = std::move(right);
+                nodes.push(std::move(expr));
             }
-        } else if (token.category == Lexer::TokenCategory::IDENTIFIER) {
-            if (!expression) {
-                // First number in the expression
-                auto number = std::make_unique<VariableCall>();
-                number->value = token.value;
-                expression = std::move(number);
-            } else if (i > 1 && tokens[i - 1].value == "+") {
-                // Create a new binary expression for addition
-                auto addition = std::make_unique<BinaryExpression>();
-                addition->op = "+";
-
-                auto rightNumber = std::make_unique<VariableCall>();
-                rightNumber->value = token.value;
-
-                addition->left = std::move(expression);
-                addition->right = std::move(rightNumber);
-
-                expression = std::move(addition);
-            }
-		}
+            ops.push(token.value);
+        }
     }
 
-    return expression;
+    while (!ops.empty()) {
+        auto right = std::move(nodes.top());
+        nodes.pop();
+        auto left = std::move(nodes.top());
+        nodes.pop();
+
+        auto op = ops.top();
+        ops.pop();
+
+        auto expr = std::make_unique<BinaryExpression>();
+        expr->left = std::move(left);
+        expr->op = op;
+        expr->right = std::move(right);
+        nodes.push(std::move(expr));
+    }
+
+    return std::move(nodes.top());
 }
 
-
-// (keyword): 'i32'
-// (identifier): 'x'
-// (operator): '='
-// (integer_literal): '25'
-// (operator): '+'
-// (integer_literal): '5'
-
-// (expression tree): ''
+const std::vector<std::unique_ptr<Parser::ASTNode>>& Parser::get() const {
+	return ast;
+}

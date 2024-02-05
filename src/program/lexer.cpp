@@ -1,37 +1,13 @@
 #include <program/lexer.h>
 
-
-const char *Lexer::keywords[] = {"if", "else", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "vector"};
+const char *Lexer::keywords[] = {"if", "else", "let"};
 const char *Lexer::operators[] = {"=", "+", "-", "*", "/"};
 
 const char Lexer::punctuators[] = {';', '.', ',', '{', '}', '[', ']', '(', ')'};
 
-
-Lexer::Lexer(const std::string source_path) {
-    const std::string source = get_source(source_path);
-    tokens = lex(source);
-	for (const auto &t : tokens) {
-		std::cout << t << '\n';
-	}
+Lexer::Lexer(const Source &source) {
+    tokens = lex(source.get());
 }
-
-
-const std::string Lexer::get_source(const std::string &source_path) const {
-    std::ifstream file(source_path); // "../src/" + source_path
-
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file" << '\n';
-        return "";
-    }
-
-    std::ostringstream ss;
-    ss << file.rdbuf();
-
-    file.close();
-
-    return ss.str();
-}
-
 
 const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
     std::vector<Lexer::Token> tokens;
@@ -105,8 +81,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
     return tokens;
 }
 
-
-const std::string Lexer::category_to_string(const Lexer::TokenCategory &category) {
+const std::string Lexer::to_string(const Lexer::TokenCategory &category) {
     switch (category) {
         case PUNCTUATOR: return "punctuator";
         case KEYWORD: return "keyword";
@@ -120,7 +95,6 @@ const std::string Lexer::category_to_string(const Lexer::TokenCategory &category
     }
 }
 
-
 const bool Lexer::is_keyword(const std::string &value) const {
     for (const auto &keyword : keywords) {
         if (value == keyword) {
@@ -131,14 +105,12 @@ const bool Lexer::is_keyword(const std::string &value) const {
     return false;
 }
 
-
-const std::vector<Lexer::Token>& Lexer::get_tokens() const {
+const std::vector<Lexer::Token>& Lexer::get() const {
     return tokens;
 }
 
-
 std::ostream& operator<<(std::ostream &os, const Lexer::Token &token) {
-    os << "(" << Lexer::category_to_string(token.category) << "): '" << token.value << "'";
+    os << "(" << Lexer::to_string(token.category) << "): '" << token.value << "'";
 
     return os;
 }
