@@ -1,16 +1,41 @@
 #include <program/lexer.h>
 
-const char *Lexer::keywords[] = {"if", "else", "let"};
-const char *Lexer::operators[] = {"=", "+", "-", "*", "/"};
+const std::unordered_map<std::string, std::string> Lexer::keywords = {
+	{"cnd_entry", "if"},
+	{"cnd_option", "elif"},
+	{"cnd_exit", "else"},
+	{"var_assign", "let"},
+};
 
-const char Lexer::punctuators[] = {';', '.', ',', '{', '}', '[', ']', '(', ')'};
+const std::unordered_map<std::string, std::string> Lexer::operators = {
+	{"assign", "="},
+	{"plus", "+"},
+	{"minus", "-"},
+	{"multiply", "*"},
+	{"divide", "/"},
+};
+
+const std::unordered_map<std::string, std::string> Lexer::punctuators = {
+	{"end", ";"},
+	{"obj_sep", "."},
+	{"elm_sep", ","},
+	{"group_open", "("},
+	{"group_close", ")"},
+	{"memsp_open", "{"},
+	{"memsp_close", "}"},
+	{"subsc_open", "["},
+	{"subsc_close", "]"},
+};
 
 Lexer::Lexer(const Source &source) {
-    tokens = lex(source.get());
+    lex(source.get());
+
+	for (const auto &t : tokens) {
+		std::cout << t << '\n';
+	}
 }
 
-const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
-    std::vector<Lexer::Token> tokens;
+void Lexer::lex(const std::string &source) {
     Token current_token;
 
     for (int i = 0; i < source.length(); ++i) {
@@ -51,7 +76,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
             bool found = false;
             current_token.value += c;
             for (const auto& op : operators) {
-                if (current_token.value == op) {
+                if (current_token.value == op.second) {
                     current_token.category = OPERATOR;
                     found = true;
                     break;
@@ -61,7 +86,7 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
             // Check for punctuators
             if (!found) {
                 for (const auto& punc : punctuators) {
-                    if (c == punc) {
+                    if (punc.second[0] == c) {
                         current_token.category = PUNCTUATOR;
                         found = true;
                         break;
@@ -77,8 +102,6 @@ const std::vector<Lexer::Token> Lexer::lex(const std::string &source) const {
 
         tokens.push_back(current_token);
     }
-
-    return tokens;
 }
 
 const std::string Lexer::to_string(const Lexer::TokenCategory &category) {
@@ -97,7 +120,7 @@ const std::string Lexer::to_string(const Lexer::TokenCategory &category) {
 
 const bool Lexer::is_keyword(const std::string &value) const {
     for (const auto &keyword : keywords) {
-        if (value == keyword) {
+        if (value == keyword.second) {
             return true;
         }
     }

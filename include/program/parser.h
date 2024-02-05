@@ -23,7 +23,7 @@ public:
         }
     };
 
-	struct ConsoleLogExpression : ASTNode {
+	struct PrintExpression : ASTNode {
         std::unique_ptr<ASTNode> expression;
         void print() const override {
             std::cout << "Log: Expression = ";
@@ -81,8 +81,8 @@ public:
 private:
     void parse(const std::vector<Lexer::Token> &lex);
 
-    std::unique_ptr<ASTNode> parse_expression(std::vector<Lexer::Token> &stack);
-	std::unique_ptr<ASTNode> parse_math_expression(std::vector<Lexer::Token> &tokens);
+    std::unique_ptr<ASTNode> evaluate_stack(std::vector<Lexer::Token> &stack);
+	std::unique_ptr<ASTNode> parse_stack(std::vector<Lexer::Token> &stack);
 
     std::vector<std::unique_ptr<ASTNode>> ast;
 };

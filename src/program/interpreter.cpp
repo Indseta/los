@@ -10,7 +10,7 @@ void Interpreter::run(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast) 
             if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree)) {
                 int value = evaluate(varAssign->expression.get());
                 memory[varAssign->identifier] = value;
-            } else if (const auto* logExpr = dynamic_cast<const Parser::ConsoleLogExpression*>(exprTree)) {
+            } else if (const auto* logExpr = dynamic_cast<const Parser::PrintExpression*>(exprTree)) {
                 int value = evaluate(logExpr->expression.get());
 				std::cout << value << '\n';
             } else {

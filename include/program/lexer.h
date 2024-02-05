@@ -7,16 +7,15 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class Lexer {
-private:
-    static const char *keywords[];
-    static const char *operators[];
-
-    static const char punctuators[];
-
 public:
+	static const std::unordered_map<std::string, std::string> keywords;
+	static const std::unordered_map<std::string, std::string> operators;
+	static const std::unordered_map<std::string, std::string> punctuators;
+
     enum TokenCategory {
         PUNCTUATOR,
         KEYWORD,
@@ -39,7 +38,7 @@ public:
     const std::vector<Token>& get() const;
 
 private:
-    const std::vector<Token> lex(const std::string &source) const;
+    void lex(const std::string &source);
     const bool is_keyword(const std::string &value) const;
     static const std::string to_string(const TokenCategory &category);
 

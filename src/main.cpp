@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
         std::chrono::duration<double, std::milli> elapsed = end - start;
 
         std::cout << '\n';
+		std::cout << std::fixed;
         std::cout << "[Done] Program finished in " << elapsed.count() / 1000.0 << " seconds" << '\n';
     }
 
