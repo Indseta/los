@@ -10,6 +10,9 @@ void Interpreter::run(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast) 
             if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree)) {
                 int value = evaluate(varAssign->expression.get());
                 memory[varAssign->identifier] = value;
+            } else if (const auto* logExpr = dynamic_cast<const Parser::ConsoleLogExpression*>(exprTree)) {
+                int value = evaluate(logExpr->expression.get());
+				std::cout << value << '\n';
             } else {
                 std::cout << "Unsupported stack node type encountered\n";
             }
@@ -48,7 +51,7 @@ int Interpreter::evaluate(const Parser::ASTNode* node) {
     }
 }
 
-void Interpreter::print() const {
+void Interpreter::log() const {
 	std::cout << "Variables:\n";
 	for (const auto &var : memory) {
 		std::cout << var.first << " = " << var.second << "\n";

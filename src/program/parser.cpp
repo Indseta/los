@@ -32,7 +32,20 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_expression(std::vector<Lexer::Tok
         var_assign->expression = parse_math_expression(expressionTokens);
 
         return var_assign;
-    }
+    } else if (tokens[0].category == Lexer::IDENTIFIER && tokens[0].value == "console" && tokens[2].category == Lexer::IDENTIFIER && tokens[2].value == "log") {
+        auto log_expr = std::make_unique<ConsoleLogExpression>();
+		size_t ix = 0;
+		for (size_t i = 0; i < tokens.size(); ++i) {
+			if (tokens[i].category == Lexer::PUNCTUATOR && tokens[i].value == "}") {
+				ix = i;
+				break;
+			}
+		}
+		std::vector<Lexer::Token> expressionTokens(tokens.begin() + 4, tokens.end() + ix);
+		log_expr->expression = parse_math_expression(expressionTokens);
+
+		return log_expr;
+	}
 
     return nullptr;
 }

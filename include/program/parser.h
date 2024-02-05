@@ -23,6 +23,16 @@ public:
         }
     };
 
+	struct ConsoleLogExpression : ASTNode {
+        std::unique_ptr<ASTNode> expression;
+        void print() const override {
+            std::cout << "Log: Expression = ";
+            if (expression) expression->print();
+            else std::cout << "null";
+            std::cout << std::endl;
+        }
+	};
+
     struct VariableAssignment : ASTNode {
         std::string type;
         std::string identifier;

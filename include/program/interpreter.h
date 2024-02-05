@@ -12,7 +12,7 @@ public:
 	Interpreter(const Parser &parser);
 	void run(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast);
     void interpret(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast);
-    void print() const;
+    void log() const;
 
 private:
     int evaluate(const Parser::ASTNode* node);
