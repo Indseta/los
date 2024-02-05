@@ -11,78 +11,85 @@
 
 class Parser {
 public:
-    struct ASTNode {
-        virtual void print() const = 0;
-        virtual ~ASTNode() = default;
+    struct Node {
+        virtual void log() const = 0;
+        virtual ~Node() = default;
     };
 
-    struct Stack : ASTNode {
-        std::unique_ptr<ASTNode> expression;
-        void print() const override {
-            if (expression) expression->print();
-        }
-    };
-
-	struct PrintExpression : ASTNode {
-        std::unique_ptr<ASTNode> expression;
-        void print() const override {
+	struct ConsoleLog : Node {
+        std::unique_ptr<Node> expr;
+        void log() const override {
             std::cout << "Log: Expression = ";
-            if (expression) expression->print();
-            else std::cout << "null";
-            std::cout << std::endl;
+            if (expr) {
+                expr->log();
+            } else {
+                std::cout << "null";
+            }
+            std::cout << '\n';
         }
 	};
 
-    struct VariableAssignment : ASTNode {
+    struct VariableAssignment : Node {
         std::string type;
         std::string identifier;
-        std::unique_ptr<ASTNode> expression;
-        void print() const override {
+        std::unique_ptr<Node> expr;
+        void log() const override {
             std::cout << "Variable Assignment: Type = " << type << ", Identifier = " << identifier << ", Expression = ";
-            if (expression) expression->print();
-            else std::cout << "null";
-            std::cout << std::endl;
+            if (expr) {
+                expr->log();
+            } else {
+                std::cout << "null";
+            }
+            std::cout << '\n';
         }
     };
 
-    struct BinaryExpression : ASTNode {
-        std::unique_ptr<ASTNode> left;
+    struct BinaryOperation : Node {
+        std::unique_ptr<Node> left;
         std::string op;
-        std::unique_ptr<ASTNode> right;
-        void print() const override {
+        std::unique_ptr<Node> right;
+        void log() const override {
             std::cout << "(";
-            if (left) left->print();
+            if (left) {
+                left->log();
+            }
             std::cout << " " << op << " ";
-            if (right) right->print();
+            if (right) {
+                right->log();
+            }
             std::cout << ")";
         }
     };
 
-    struct NumberLiteral : ASTNode {
+    struct NumberLiteral : Node {
 		explicit NumberLiteral(const std::string& val) : value(val) {}
         std::string value;
-        void print() const override {
+        void log() const override {
             std::cout << "NumberLiteral(" << value << ")";
         }
     };
     
-    struct VariableCall : ASTNode {
+    struct VariableCall : Node {
 		explicit VariableCall(const std::string& val) : value(val) {}
         std::string value;
-        void print() const override {
+        void log() const override {
             std::cout << "VariableCall(" << value << ")";
         }
     };
 
     Parser(const Lexer &lexer);
 
-	const std::vector<std::unique_ptr<ASTNode>>& get() const;
+	const std::vector<std::unique_ptr<Node>>& get() const;
 
 private:
     void parse(const std::vector<Lexer::Token> &lex);
 
-    std::unique_ptr<ASTNode> evaluate_stack(std::vector<Lexer::Token> &stack);
-	std::unique_ptr<ASTNode> parse_stack(std::vector<Lexer::Token> &stack);
+    std::unique_ptr<Node> expr_selector(std::vector<Lexer::Token> &expr);
+	std::unique_ptr<Node> parse_expr(std::vector<Lexer::Token> &expr);
+	std::unique_ptr<Node> binop_expr(std::vector<Lexer::Token> &expr);
 
-    std::vector<std::unique_ptr<ASTNode>> ast;
+	bool match_keyword(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &key);
+	bool match_identifier(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &value);
+
+    std::vector<std::unique_ptr<Node>> ast;
 };

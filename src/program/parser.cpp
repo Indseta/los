@@ -2,54 +2,48 @@
 
 Parser::Parser(const Lexer &lexer) {
     parse(lexer.get());
-
-    for (const auto &node : ast) {
-        node->print();
-        std::cout << std::endl;
-    }
 }
 
 void Parser::parse(const std::vector<Lexer::Token> &lex) {
-    std::vector<Lexer::Token> stack;
+    std::vector<Lexer::Token> exor;
 
-    for (const auto &token : lex) {
-        if (token.value == ";") {
-            auto expression_tree = evaluate_stack(stack);
-            if (expression_tree) {
-                ast.push_back(std::move(expression_tree));
+    for (const auto &t : lex) {
+        if (t.value == ";") {
+            auto expr = expr_selector(exor);
+            if (expr) {
+                ast.push_back(std::move(expr));
             }
-            stack.clear();
+            exor.clear();
         } else {
-            stack.push_back(token);
+            exor.push_back(t);
         }
     }
 }
 
-std::unique_ptr<Parser::ASTNode> Parser::evaluate_stack(std::vector<Lexer::Token> &stack) {
-    if (stack.empty()) return nullptr;
+std::unique_ptr<Parser::Node> Parser::expr_selector(std::vector<Lexer::Token> &expr) {
+    if (expr.empty()) {
+        return nullptr;
+    }
 
-    if (stack[0].category == Lexer::KEYWORD && stack[0].value == Lexer::keywords.at("var_assign") && stack[1].category == Lexer::IDENTIFIER && stack[2].value == Lexer::operators.at("assign")) {
-        auto var_assign = std::make_unique<VariableAssignment>();
-        var_assign->type = stack[0].value;
-        var_assign->identifier = stack[1].value;
-
-        std::vector<Lexer::Token> expressionTokens(stack.begin() + 3, stack.end());
-        var_assign->expression = parse_stack(expressionTokens);
-
-        return var_assign;
-    } else if (stack[0].category == Lexer::IDENTIFIER && stack[0].value == "println") {
-        auto log_expr = std::make_unique<PrintExpression>();
-		std::vector<Lexer::Token> expressionTokens(stack.begin() + 2, stack.end() - 1);
-		log_expr->expression = parse_stack(expressionTokens);
-
-		return log_expr;
-	}
-
-    return nullptr;
+    if (match_keyword(expr, 0, "var_assign")) {
+        auto node = std::make_unique<VariableAssignment>();
+        node->type = expr[0].value;
+        node->identifier = expr[1].value;
+        std::vector<Lexer::Token> node_stack(expr.begin() + 3, expr.end());
+        node->expr = parse_expr(node_stack);
+        return node;
+    } else if (match_identifier(expr, 0, "println")) {
+        auto node = std::make_unique<ConsoleLog>();
+        std::vector<Lexer::Token> node_stack(expr.begin() + 2, expr.end() - 1);
+        node->expr = parse_expr(node_stack);
+        return node;
+    } else {
+        return nullptr;
+    }
 }
 
-std::unique_ptr<Parser::ASTNode> Parser::parse_stack(std::vector<Lexer::Token> &stack) {
-    std::stack<std::unique_ptr<ASTNode>> nodes;
+std::unique_ptr<Parser::Node> Parser::parse_expr(std::vector<Lexer::Token> &expr) {
+    std::stack<std::unique_ptr<Node>> nodes;
     std::stack<std::string> ops;
 
     auto get_precedence = [](const std::string& op) -> int {
@@ -58,13 +52,13 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_stack(std::vector<Lexer::Token> &
         return 0;
     };
 
-    for (auto& token : stack) {
-        if (token.category == Lexer::INTEGER_LITERAL) {
-            nodes.push(std::make_unique<NumberLiteral>(token.value));
-        } else if (token.category == Lexer::IDENTIFIER) {
-            nodes.push(std::make_unique<VariableCall>(token.value));
-        } else if (token.category == Lexer::OPERATOR) {
-            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(token.value)) {
+    for (auto &t : expr) {
+        if (t.category == Lexer::INTEGER_LITERAL) {
+            nodes.push(std::make_unique<NumberLiteral>(t.value));
+        } else if (t.category == Lexer::IDENTIFIER) {
+            nodes.push(std::make_unique<VariableCall>(t.value));
+        } else if (t.category == Lexer::OPERATOR) {
+            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(t.value)) {
                 auto right = std::move(nodes.top());
                 nodes.pop();
                 auto left = std::move(nodes.top());
@@ -73,13 +67,13 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_stack(std::vector<Lexer::Token> &
                 auto op = ops.top();
                 ops.pop();
 
-                auto expr = std::make_unique<BinaryExpression>();
+                auto expr = std::make_unique<BinaryOperation>();
                 expr->left = std::move(left);
                 expr->op = op;
                 expr->right = std::move(right);
                 nodes.push(std::move(expr));
             }
-            ops.push(token.value);
+            ops.push(t.value);
         }
     }
 
@@ -92,7 +86,7 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_stack(std::vector<Lexer::Token> &
         auto op = ops.top();
         ops.pop();
 
-        auto expr = std::make_unique<BinaryExpression>();
+        auto expr = std::make_unique<BinaryOperation>();
         expr->left = std::move(left);
         expr->op = op;
         expr->right = std::move(right);
@@ -102,6 +96,14 @@ std::unique_ptr<Parser::ASTNode> Parser::parse_stack(std::vector<Lexer::Token> &
     return std::move(nodes.top());
 }
 
-const std::vector<std::unique_ptr<Parser::ASTNode>>& Parser::get() const {
-	return ast;
+bool Parser::match_keyword(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &key) {
+    return (expr[i].category == Lexer::KEYWORD && expr[i].value == Lexer::keywords.at(key));
+}
+
+bool Parser::match_identifier(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &value) {
+    return (expr[i].category == Lexer::IDENTIFIER && expr[i].value == value);
+}
+
+const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {
+    return ast;
 }

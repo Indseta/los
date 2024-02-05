@@ -9,13 +9,13 @@
 
 class Interpreter {
 public:
-	Interpreter(const Parser &parser);
-	void run(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast);
-    void interpret(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast);
+    Interpreter(const Parser &parser);
+    void run(const std::vector<std::unique_ptr<Parser::Node>> &ast);
+    void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
     void log() const;
 
 private:
-    int evaluate(const Parser::ASTNode* node);
+    int evaluate(const Parser::Node* node);
 
     std::unordered_map<std::string, int> memory;
 };

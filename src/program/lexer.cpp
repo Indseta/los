@@ -1,38 +1,34 @@
 #include <program/lexer.h>
 
 const std::unordered_map<std::string, std::string> Lexer::keywords = {
-	{"cnd_entry", "if"},
-	{"cnd_option", "elif"},
-	{"cnd_exit", "else"},
-	{"var_assign", "let"},
+    {"cnd_entry", "if"},
+    {"cnd_option", "elif"},
+    {"cnd_exit", "else"},
+    {"var_assign", "let"},
 };
 
 const std::unordered_map<std::string, std::string> Lexer::operators = {
-	{"assign", "="},
-	{"plus", "+"},
-	{"minus", "-"},
-	{"multiply", "*"},
-	{"divide", "/"},
+    {"assign", "="},
+    {"plus", "+"},
+    {"minus", "-"},
+    {"multiply", "*"},
+    {"divide", "/"},
 };
 
 const std::unordered_map<std::string, std::string> Lexer::punctuators = {
-	{"end", ";"},
-	{"obj_sep", "."},
-	{"elm_sep", ","},
-	{"group_open", "("},
-	{"group_close", ")"},
-	{"memsp_open", "{"},
-	{"memsp_close", "}"},
-	{"subsc_open", "["},
-	{"subsc_close", "]"},
+    {"end", ";"},
+    {"obj_sep", "."},
+    {"elm_sep", ","},
+    {"group_open", "("},
+    {"group_close", ")"},
+    {"memsp_open", "{"},
+    {"memsp_close", "}"},
+    {"subsc_open", "["},
+    {"subsc_close", "]"},
 };
 
 Lexer::Lexer(const Source &source) {
     lex(source.get());
-
-	for (const auto &t : tokens) {
-		std::cout << t << '\n';
-	}
 }
 
 void Lexer::lex(const std::string &source) {
@@ -75,8 +71,8 @@ void Lexer::lex(const std::string &source) {
         else {
             bool found = false;
             current_token.value += c;
-            for (const auto& op : operators) {
-                if (current_token.value == op.second) {
+            for (const auto& o : operators) {
+                if (current_token.value == o.second) {
                     current_token.category = OPERATOR;
                     found = true;
                     break;
@@ -85,8 +81,8 @@ void Lexer::lex(const std::string &source) {
 
             // Check for punctuators
             if (!found) {
-                for (const auto& punc : punctuators) {
-                    if (punc.second[0] == c) {
+                for (const auto& p : punctuators) {
+                    if (p.second[0] == c) {
                         current_token.category = PUNCTUATOR;
                         found = true;
                         break;
@@ -104,20 +100,6 @@ void Lexer::lex(const std::string &source) {
     }
 }
 
-const std::string Lexer::to_string(const Lexer::TokenCategory &category) {
-    switch (category) {
-        case PUNCTUATOR: return "punctuator";
-        case KEYWORD: return "keyword";
-        case IDENTIFIER: return "identifier";
-        case OPERATOR: return "operator";
-        case INTEGER_LITERAL: return "integer_literal";
-        case STRING_LITERAL: return "string_literal";
-        case LINE_COMMENT: return "line_comment";
-        case BLOCK_COMMENT: return "block_comment";
-        default: return "unknown";
-    }
-}
-
 const bool Lexer::is_keyword(const std::string &value) const {
     for (const auto &keyword : keywords) {
         if (value == keyword.second) {
@@ -130,10 +112,4 @@ const bool Lexer::is_keyword(const std::string &value) const {
 
 const std::vector<Lexer::Token>& Lexer::get() const {
     return tokens;
-}
-
-std::ostream& operator<<(std::ostream &os, const Lexer::Token &token) {
-    os << "(" << Lexer::to_string(token.category) << "): '" << token.value << "'";
-
-    return os;
 }

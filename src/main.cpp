@@ -78,21 +78,21 @@ int main(int argc, char *argv[]) {
         // Start program
         auto start = std::chrono::high_resolution_clock::now();
 
-		Environment environment;
-		try {
-			environment.run(argv[1]);
-		} catch (const std::exception &e) {
-			std::cerr << e.what() << '\n';
-			return EXIT_FAILURE;
-		}
+        Environment environment;
+        try {
+            environment.run(argv[1]);
+        } catch (const std::exception &e) {
+            std::cerr << e.what() << '\n';
+            return EXIT_FAILURE;
+        }
 
         // End program
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed = end - start;
 
-        std::cout << '\n';
-		std::cout << std::fixed;
-        std::cout << "[Done] Program finished in " << elapsed.count() / 1000.0 << " seconds" << '\n';
+        // std::cout << '\n';
+        // std::cout << std::fixed;
+        // std::cout << "[Done] Program finished in " << elapsed.count() / 1000.0 << " seconds" << '\n';
     }
 
     return EXIT_SUCCESS;

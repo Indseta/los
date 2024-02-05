@@ -1,28 +1,28 @@
 #include <program/interpreter.h>
 
 Interpreter::Interpreter(const Parser &parser) {
-	run(parser.get());
+    run(parser.get());
 }
 
-void Interpreter::run(const std::vector<std::unique_ptr<Parser::ASTNode>> &ast) {
-	for (const auto& node : ast) {
-        if (const auto* exprTree = dynamic_cast<const Parser::ASTNode*>(node.get())) {
+void Interpreter::run(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
+    for (const auto& node : ast) {
+        if (const auto* exprTree = dynamic_cast<const Parser::Node*>(node.get())) {
             if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree)) {
-                int value = evaluate(varAssign->expression.get());
+                int value = evaluate(varAssign->expr.get());
                 memory[varAssign->identifier] = value;
-            } else if (const auto* logExpr = dynamic_cast<const Parser::PrintExpression*>(exprTree)) {
-                int value = evaluate(logExpr->expression.get());
-				std::cout << value << '\n';
+            } else if (const auto* logExpr = dynamic_cast<const Parser::ConsoleLog*>(exprTree)) {
+                int value = evaluate(logExpr->expr.get());
+                std::cout << value << '\n';
             } else {
                 std::cout << "Unsupported stack node type encountered\n";
             }
         } else {
             std::cout << "Unsupported AST node type encountered\n";
         }
-	}
+    }
 }
 
-int Interpreter::evaluate(const Parser::ASTNode* node) {
+int Interpreter::evaluate(const Parser::Node* node) {
     if (const auto* num = dynamic_cast<const Parser::NumberLiteral*>(node)) {
         return std::stoi(num->value);
     } else if (const auto* call = dynamic_cast<const Parser::VariableCall*>(node)) {
@@ -31,7 +31,7 @@ int Interpreter::evaluate(const Parser::ASTNode* node) {
             return it->second;
         }
         throw std::runtime_error("Undefined variable: " + call->value);
-    } else if (const auto* binExp = dynamic_cast<const Parser::BinaryExpression*>(node)) {
+    } else if (const auto* binExp = dynamic_cast<const Parser::BinaryOperation*>(node)) {
         int left = evaluate(binExp->left.get());
         int right = evaluate(binExp->right.get());
         if (binExp->op == "+") {
@@ -52,8 +52,8 @@ int Interpreter::evaluate(const Parser::ASTNode* node) {
 }
 
 void Interpreter::log() const {
-	std::cout << "Variables:\n";
-	for (const auto &var : memory) {
-		std::cout << var.first << " = " << var.second << "\n";
-	}
+    std::cout << "Variables:\n";
+    for (const auto &var : memory) {
+        std::cout << var.first << " = " << var.second << "\n";
+    }
 }

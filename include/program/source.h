@@ -7,12 +7,12 @@
 
 class Source {
 public:
-	Source(const std::string &fp);
+    Source(const std::string &fp);
 
-	const std::string& get() const;
+    const std::string& get() const;
 
 private:
-	const std::string read_source(const std::string &fp);
+    const std::string read_source(const std::string &fp);
 
-	const std::string raw;
+    const std::string raw;
 };
