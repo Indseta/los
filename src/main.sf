@@ -3,5 +3,4 @@ let y = 40;
 let z = x * y;
 
 console.log(z);
-console.log(z);
-console.log(z);
+console.log(1000);
