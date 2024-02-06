@@ -16,10 +16,10 @@ public:
         virtual ~Node() = default;
     };
 
-	struct ConsoleLog : Node {
+	struct LogStatement : Node {
         std::unique_ptr<Node> expr;
         void log() const override {
-            std::cout << "Log: Expression = ";
+            std::cout << "Log Statement: Expression = ";
             if (expr) {
                 expr->log();
             } else {

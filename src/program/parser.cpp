@@ -33,7 +33,7 @@ std::unique_ptr<Parser::Node> Parser::expr_selector(std::vector<Lexer::Token> &e
         node->expr = parse_expr(node_stack);
         return node;
     } else if (match_identifier(expr, 0, "println")) {
-        auto node = std::make_unique<ConsoleLog>();
+        auto node = std::make_unique<LogStatement>();
         std::vector<Lexer::Token> node_stack(expr.begin() + 2, expr.end() - 1);
         node->expr = parse_expr(node_stack);
         return node;

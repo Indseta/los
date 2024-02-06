@@ -1,10 +1,26 @@
 #include <program/lexer.h>
 
 const std::unordered_map<std::string, std::string> Lexer::keywords = {
+    {"var_type_string", "string"},
+    {"var_type_int8", "i8"},
+    {"var_type_int16", "i16"},
+    {"var_type_int32", "i32"},
+    {"var_type_int64", "i64"},
+    {"var_type_float8", "f8"},
+    {"var_type_float16", "f16"},
+    {"var_type_float32", "f32"},
+    {"var_type_float64", "f64"},
+    {"var_type_bool", "bool"},
+    {"var_assign", "let"},
+    {"func_assign", "function"},
+    {"func_exit", "return"},
     {"cnd_entry", "if"},
     {"cnd_option", "elif"},
     {"cnd_exit", "else"},
-    {"var_assign", "let"},
+    {"loop_cls", "for"},
+    {"loop_cnd", "while"},
+    {"loop_exit", "break"},
+    {"loop_skip", "continue"},
 };
 
 const std::unordered_map<std::string, std::string> Lexer::operators = {
@@ -13,6 +29,12 @@ const std::unordered_map<std::string, std::string> Lexer::operators = {
     {"minus", "-"},
     {"multiply", "*"},
     {"divide", "/"},
+    {"equality", "=="},
+    {"inequality", "!="},
+    {"greater", ">"},
+    {"greater_equal", ">="},
+    {"less", ">"},
+    {"less_equal", ">="},
 };
 
 const std::unordered_map<std::string, std::string> Lexer::punctuators = {
@@ -31,82 +53,94 @@ Lexer::Lexer(const Source &source) {
     lex(source.get());
 }
 
-void Lexer::lex(const std::string &source) {
-    Token current_token;
+void Lexer::lex(const std::string &raw) {
+    Token ct;
 
-    for (int i = 0; i < source.length(); ++i) {
-        const char c = source[i];
+    for (int i = 0; i < raw.length(); ++i) {
+        const char c = raw[i];
 
-        // Skip whitespaces
+        // Skip whitespace
         if (std::isspace(c)) {
             continue;
         }
 
         // Reset token value
-        current_token.value = "";
+        ct.value = "";
 
-        // Check if character is a digit
+        // Keyword & identifier
+        if (std::isalpha(c)) {
+            ct.value += c;
+            while (i + 1 < raw.length() && (std::isalpha(raw[i + 1]) || std::isdigit(raw[i + 1]))) {
+                ct.value += raw[++i];
+            }
+            ct.category = is_keyword(ct.value) ? KEYWORD : IDENTIFIER;
+            tokens.push_back(ct);
+            continue;
+        }
+
+        // Integer literal
         if (std::isdigit(c)) {
-            current_token.value += c;
-            while (i + 1 < source.length() && std::isdigit(source[i + 1])) {
-                current_token.value += source[++i];
+            ct.value += c;
+            while (i + 1 < raw.length() && std::isdigit(raw[i + 1])) {
+                ct.value += raw[++i];
             }
-            current_token.category = INTEGER_LITERAL;
+            ct.category = INTEGER_LITERAL;
+            tokens.push_back(ct);
+            continue;
         }
 
-        // Check for keyword or identifier
-        else if (std::isalpha(c)) {
-            current_token.value += c;
-            while (i + 1 < source.length() && std::isalnum(source[i + 1])) {
-                current_token.value += source[++i];
+        // Operator
+        if (is_operator(std::string(1, c))) {
+            ct.value += c;
+            while (i + 1 < raw.length() && is_operator(ct.value + raw[i + 1])) {
+                ct.value += raw[++i];
             }
-            if (is_keyword(current_token.value)) {
-                current_token.category = KEYWORD;
-            } else {
-                current_token.category = IDENTIFIER;
-            }
+            ct.category = OPERATOR;
+            tokens.push_back(ct);
+            continue;
         }
 
-        // Check for operators
-        else {
-            bool found = false;
-            current_token.value += c;
-            for (const auto& o : operators) {
-                if (current_token.value == o.second) {
-                    current_token.category = OPERATOR;
-                    found = true;
-                    break;
-                }
+        // Punctuator
+        if (is_punctuator(std::string(1, c))) {
+            ct.value += c;
+            while (i + 1 < raw.length() && is_punctuator(ct.value + raw[i + 1])) {
+                ct.value += raw[++i];
             }
-
-            // Check for punctuators
-            if (!found) {
-                for (const auto& p : punctuators) {
-                    if (p.second[0] == c) {
-                        current_token.category = PUNCTUATOR;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            // Unknown character
-            if (!found) {
-                current_token.category = UNKNOWN;
-            }
+            ct.category = PUNCTUATOR;
+            tokens.push_back(ct);
+            continue;
         }
 
-        tokens.push_back(current_token);
+        // Unkown token
+        ct.category = UNKNOWN;
+        tokens.push_back(ct);
     }
 }
 
 const bool Lexer::is_keyword(const std::string &value) const {
-    for (const auto &keyword : keywords) {
-        if (value == keyword.second) {
+    for (const auto &e : keywords) {
+        if (value == e.second) {
             return true;
         }
     }
+    return false;
+}
 
+const bool Lexer::is_operator(const std::string &value) const {
+    for (const auto& e : operators) {
+        if (value == e.second) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const bool Lexer::is_punctuator(const std::string &value) const {
+    for (const auto& e : punctuators) {
+        if (value == e.second) {
+            return true;
+        }
+    }
     return false;
 }
 

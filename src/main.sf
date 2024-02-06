@@ -1,6 +1,6 @@
-let x = 11;
-let y = 40;
-let z = x * y;
+let x = 10;
+let y = 20;
+let z = 30;
 
-println(z);
-println(1000);
+println(x + y + z);
+println(100 * 29);
