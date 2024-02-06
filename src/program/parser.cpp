@@ -5,17 +5,17 @@ Parser::Parser(const Lexer &lexer) {
 }
 
 void Parser::parse(const std::vector<Lexer::Token> &lex) {
-    std::vector<Lexer::Token> exor;
+    std::vector<Lexer::Token> stack;
 
     for (const auto &t : lex) {
         if (t.value == ";") {
-            auto expr = expr_selector(exor);
+            auto expr = expr_selector(stack);
             if (expr) {
                 ast.push_back(std::move(expr));
             }
-            exor.clear();
+            stack.clear();
         } else {
-            exor.push_back(t);
+            stack.push_back(t);
         }
     }
 }
@@ -49,6 +49,7 @@ std::unique_ptr<Parser::Node> Parser::parse_expr(std::vector<Lexer::Token> &expr
     auto get_precedence = [](const std::string& op) -> int {
         if (op == "*" || op == "/") return 2;
         if (op == "+" || op == "-") return 1;
+        if (op == "(") return 3; 
         return 0;
     };
 
@@ -57,8 +58,27 @@ std::unique_ptr<Parser::Node> Parser::parse_expr(std::vector<Lexer::Token> &expr
             nodes.push(std::make_unique<NumberLiteral>(t.value));
         } else if (t.category == Lexer::IDENTIFIER) {
             nodes.push(std::make_unique<VariableCall>(t.value));
+        } else if (t.category == Lexer::PUNCTUATOR && t.value == "(") {
+            ops.push(t.value);
+        } else if (t.category == Lexer::PUNCTUATOR && t.value == ")") {
+            while (!ops.empty() && ops.top() != "(") {
+                auto right = std::move(nodes.top());
+                nodes.pop();
+                auto left = std::move(nodes.top());
+                nodes.pop();
+
+                auto op = ops.top();
+                ops.pop();
+
+                auto expr = std::make_unique<BinaryOperation>();
+                expr->left = std::move(left);
+                expr->op = op;
+                expr->right = std::move(right);
+                nodes.push(std::move(expr));
+            }
+            if (!ops.empty()) ops.pop();
         } else if (t.category == Lexer::OPERATOR) {
-            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(t.value)) {
+            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(t.value) && ops.top() != "(") {
                 auto right = std::move(nodes.top());
                 nodes.pop();
                 auto left = std::move(nodes.top());

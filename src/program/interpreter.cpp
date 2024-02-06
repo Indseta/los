@@ -1,28 +1,28 @@
 #include <program/interpreter.h>
 
 Interpreter::Interpreter(const Parser &parser) {
-    run(parser.get());
+    interpret(parser.get());
 }
 
-void Interpreter::run(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
-    for (const auto& node : ast) {
-        if (const auto* exprTree = dynamic_cast<const Parser::Node*>(node.get())) {
-            if (const auto* varAssign = dynamic_cast<const Parser::VariableAssignment*>(exprTree)) {
-                int value = evaluate(varAssign->expr.get());
-                memory[varAssign->identifier] = value;
-            } else if (const auto* logExpr = dynamic_cast<const Parser::LogStatement*>(exprTree)) {
-                int value = evaluate(logExpr->expr.get());
+void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
+    for (const auto &tree : ast) {
+        if (const auto *expr = dynamic_cast<const Parser::Node*>(tree.get())) {
+            if (const auto *node = dynamic_cast<const Parser::VariableAssignment*>(expr)) {
+                const auto value = evaluate(node->expr.get());
+                memory[node->identifier] = value;
+            } else if (const auto *node = dynamic_cast<const Parser::LogStatement*>(expr)) {
+                const auto value = evaluate(node->expr.get());
                 std::cout << value << '\n';
             } else {
-                std::cout << "Unsupported stack node type encountered\n";
+                std::cout << "Unsupported AST node type encountered" << '\n';
             }
         } else {
-            std::cout << "Unsupported AST node type encountered\n";
+            std::cout << "Unsupported AST node type encountered" << '\n';
         }
     }
 }
 
-int Interpreter::evaluate(const Parser::Node* node) {
+int Interpreter::evaluate(const Parser::Node *node) {
     if (const auto* num = dynamic_cast<const Parser::NumberLiteral*>(node)) {
         return std::stoi(num->value);
     } else if (const auto* call = dynamic_cast<const Parser::VariableCall*>(node)) {
@@ -31,20 +31,20 @@ int Interpreter::evaluate(const Parser::Node* node) {
             return it->second;
         }
         throw std::runtime_error("Undefined variable: " + call->value);
-    } else if (const auto* binExp = dynamic_cast<const Parser::BinaryOperation*>(node)) {
-        int left = evaluate(binExp->left.get());
-        int right = evaluate(binExp->right.get());
-        if (binExp->op == "+") {
+    } else if (const auto *bin_exp = dynamic_cast<const Parser::BinaryOperation*>(node)) {
+        int left = evaluate(bin_exp->left.get());
+        int right = evaluate(bin_exp->right.get());
+        if (bin_exp->op == "+") {
             return left + right;
-        } else if (binExp->op == "-") {
+        } else if (bin_exp->op == "-") {
             return left - right;
-        } else if (binExp->op == "*") {
+        } else if (bin_exp->op == "*") {
             return left * right;
-        } else if (binExp->op == "/") {
+        } else if (bin_exp->op == "/") {
             if (right == 0) throw std::runtime_error("Division by zero error");
             return left / right;
         } else {
-            throw std::runtime_error("Unsupported operator: " + binExp->op);
+            throw std::runtime_error("Unsupported operator: " + bin_exp->op);
         }
     } else {
         throw std::runtime_error("Unsupported AST node type");

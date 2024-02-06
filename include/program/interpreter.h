@@ -10,7 +10,6 @@
 class Interpreter {
 public:
     Interpreter(const Parser &parser);
-    void run(const std::vector<std::unique_ptr<Parser::Node>> &ast);
     void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
     void log() const;
 

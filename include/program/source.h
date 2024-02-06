@@ -8,11 +8,10 @@
 class Source {
 public:
     Source(const std::string &fp);
-
     const std::string& get() const;
 
 private:
-    const std::string read_source(const std::string &fp);
+    void read_source(const std::string &fp);
 
-    const std::string raw;
+    std::string raw;
 };

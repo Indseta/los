@@ -1,6 +1,2 @@
-let x = 10;
-let y = 20;
-let z = 30;
-
-println(x + y + z);
-println(100 * 29);
+var x = (10 + 30) * 2;
+println(x);
