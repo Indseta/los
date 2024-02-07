@@ -9,12 +9,24 @@
 
 class Interpreter {
 public:
+    struct Res {
+        Res() : value(""), type("") {}
+        Res(const std::string &value, const std::string &type) : value(value), type(type) {}
+        std::string value;
+        std::string type;
+    };
+
     Interpreter(const Parser &parser);
     void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
     void log() const;
 
 private:
-    int evaluate(const Parser::Node* node);
+    Res evaluate(const Parser::Node* node);
 
-    std::unordered_map<std::string, int> memory;
+    const std::string add(const std::string &a, const std::string &b) const;
+    const std::string sub(const std::string &a, const std::string &b) const;
+    const std::string mul(const std::string &a, const std::string &b) const;
+    const std::string div(const std::string &a, const std::string &b) const;
+
+    std::unordered_map<std::string, Res> memory;
 };

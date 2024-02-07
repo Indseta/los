@@ -2,94 +2,92 @@
 
 #include <program/lexer.h>
 
-#include <algorithm>
 #include <iostream>
 #include <memory>
-#include <stack>
-#include <string>
+#include <set>
 #include <vector>
 
 class Parser {
 public:
     struct Node {
-        virtual void log() const = 0;
         virtual ~Node() = default;
+        virtual void log() const = 0;
     };
 
-	struct LogStatement : Node {
+    struct LogStatement : public Node {
         std::unique_ptr<Node> expr;
-        void log() const override {
-            std::cout << "Log Statement: Expression = ";
-            if (expr) {
-                expr->log();
-            } else {
-                std::cout << "null";
-            }
-            std::cout << '\n';
-        }
-	};
+        explicit LogStatement(std::unique_ptr<Node> expr) : expr(std::move(expr)) {}
+        void log() const override {}
+    };
 
-    struct VariableAssignment : Node {
-        std::string type;
+    struct VariableDeclaration : public Node {
+        VariableDeclaration(std::string op, std::string identifier, std::unique_ptr<Node> expr) : op(std::move(op)), identifier(std::move(identifier)), expr(std::move(expr)) {}
+        std::string op;
         std::string identifier;
         std::unique_ptr<Node> expr;
-        void log() const override {
-            std::cout << "Variable Assignment: Type = " << type << ", Identifier = " << identifier << ", Expression = ";
-            if (expr) {
-                expr->log();
-            } else {
-                std::cout << "null";
-            }
-            std::cout << '\n';
-        }
+        void log() const override {}
     };
 
-    struct BinaryOperation : Node {
+    struct BinaryOperation : public Node {
         std::unique_ptr<Node> left;
         std::string op;
         std::unique_ptr<Node> right;
-        void log() const override {
-            std::cout << "(";
-            if (left) {
-                left->log();
-            }
-            std::cout << " " << op << " ";
-            if (right) {
-                right->log();
-            }
-            std::cout << ")";
-        }
+        BinaryOperation(std::unique_ptr<Node> left, std::string op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
+        void log() const override {}
     };
 
-    struct NumberLiteral : Node {
-		explicit NumberLiteral(const std::string& val) : value(val) {}
-        std::string value;
-        void log() const override {
-            std::cout << "NumberLiteral(" << value << ")";
-        }
+    struct UnaryOperation : public Node {
+        std::string op;
+        std::unique_ptr<Node> right;
+
+        UnaryOperation(std::string op, std::unique_ptr<Node> right) : op(std::move(op)), right(std::move(right)) {}
+
+        void log() const override {}
     };
-    
-    struct VariableCall : Node {
-		explicit VariableCall(const std::string& val) : value(val) {}
+
+    struct NumberLiteral : public Node {
         std::string value;
-        void log() const override {
-            std::cout << "VariableCall(" << value << ")";
-        }
+        explicit NumberLiteral(const std::string& value) : value(std::move(value)) {}
+        void log() const override {}
+    };
+
+    struct StringLiteral : public Node {
+        std::string value;
+        explicit StringLiteral(const std::string& value) : value(std::move(value)) {}
+        void log() const override {}
+    };
+
+    struct VariableCall : public Node {
+        std::string value;
+        explicit VariableCall(const std::string& value) : value(std::move(value)) {}
+        void log() const override {}
     };
 
     Parser(const Lexer &lexer);
-
-	const std::vector<std::unique_ptr<Node>>& get() const;
+    const std::vector<std::unique_ptr<Node>>& get() const;
 
 private:
-    void parse(const std::vector<Lexer::Token> &lex);
-
-    std::unique_ptr<Node> expr_selector(std::vector<Lexer::Token> &expr);
-	std::unique_ptr<Node> parse_expr(std::vector<Lexer::Token> &expr);
-	std::unique_ptr<Node> binop_expr(std::vector<Lexer::Token> &expr);
-
-	bool match_keyword(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &key);
-	bool match_identifier(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &value);
-
     std::vector<std::unique_ptr<Node>> ast;
+    const std::vector<Lexer::Token> &tokens;
+    size_t current = 0;
+
+    void parse();
+    bool isAtEnd() const;
+    const Lexer::Token& peek() const;
+    const Lexer::Token& previous() const;
+    bool match(std::initializer_list<std::string> types);
+    const Lexer::Token& advance();
+    const Lexer::Token& consume(const std::string& type, const std::string& message);
+    [[noreturn]] void error(const std::string &msg) const;
+
+    std::unique_ptr<Node> statement();
+    std::unique_ptr<Node> log_statement();
+    std::unique_ptr<Node> variable_declaration();
+    std::unique_ptr<Node> expression();
+    std::unique_ptr<Node> equality();
+    std::unique_ptr<Node> comparison();
+    std::unique_ptr<Node> term();
+    std::unique_ptr<Node> factor();
+    std::unique_ptr<Node> unary();
+    std::unique_ptr<Node> primary();
 };

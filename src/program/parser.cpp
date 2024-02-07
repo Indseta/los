@@ -1,127 +1,162 @@
 #include <program/parser.h>
 
-Parser::Parser(const Lexer &lexer) {
-    parse(lexer.get());
+Parser::Parser(const Lexer &lexer) : tokens(lexer.get()) {
+    parse();
 }
 
-void Parser::parse(const std::vector<Lexer::Token> &lex) {
-    std::vector<Lexer::Token> stack;
+void Parser::parse() {
+    std::vector<std::unique_ptr<Node>> statements;
+    while (!isAtEnd()) {
+        statements.push_back(std::move(statement()));
+    }
+    ast = std::move(statements);
+}
 
-    for (const auto &t : lex) {
-        if (t.value == ";") {
-            auto expr = expr_selector(stack);
-            if (expr) {
-                ast.push_back(std::move(expr));
-            }
-            stack.clear();
-        } else {
-            stack.push_back(t);
+bool Parser::isAtEnd() const {
+    return current >= tokens.size();
+}
+
+const Lexer::Token& Parser::peek() const {
+    return tokens[current];
+}
+
+const Lexer::Token& Parser::previous() const {
+    return tokens[current - 1];
+}
+
+const Lexer::Token& Parser::advance() {
+    if (!isAtEnd()) current++;
+    return previous();
+}
+
+bool Parser::match(std::initializer_list<std::string> types) {
+    for (const std::string &type : types) {
+        if (peek().value == type && !isAtEnd()) {
+            current++;
+            return true;
         }
     }
+    return false;
 }
 
-std::unique_ptr<Parser::Node> Parser::expr_selector(std::vector<Lexer::Token> &expr) {
-    if (expr.empty()) {
-        return nullptr;
-    }
+const Lexer::Token& Parser::consume(const std::string& type, const std::string& message) {
+    if (peek().value == type) return tokens[current++];
 
-    if (match_keyword(expr, 0, "var_assign")) {
-        auto node = std::make_unique<VariableAssignment>();
-        node->type = expr[0].value;
-        node->identifier = expr[1].value;
-        std::vector<Lexer::Token> node_stack(expr.begin() + 3, expr.end());
-        node->expr = parse_expr(node_stack);
-        return node;
-    } else if (match_identifier(expr, 0, "println")) {
-        auto node = std::make_unique<LogStatement>();
-        std::vector<Lexer::Token> node_stack(expr.begin() + 2, expr.end() - 1);
-        node->expr = parse_expr(node_stack);
-        return node;
+    error(message);
+}
+
+void Parser::error(const std::string &msg) const {
+    throw std::runtime_error(msg);
+}
+
+std::unique_ptr<Parser::Node> Parser::statement() {
+    if (match({"let", "var", "const"})) return variable_declaration();
+    if (match({"println"})) return log_statement();
+    return expression();
+}
+
+std::unique_ptr<Parser::Node> Parser::log_statement() {
+    auto value = expression();
+    consume(";", "Expect ';' after value.");
+    return std::make_unique<LogStatement>(std::move(value));
+}
+
+std::unique_ptr<Parser::Node> Parser::variable_declaration() {
+    std::string op = previous().value;
+    std::string identifier;
+    if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
+        identifier = advance().value;
     } else {
-        return nullptr;
+        error("Expected identifier");
     }
+    consume("=", "Expected '=' after variable identifier");
+    auto value = expression();
+    consume(";", "Expected ';' after variable declaration");
+    return std::make_unique<VariableDeclaration>(op, identifier, std::move(value));
 }
 
-std::unique_ptr<Parser::Node> Parser::parse_expr(std::vector<Lexer::Token> &expr) {
-    std::stack<std::unique_ptr<Node>> nodes;
-    std::stack<std::string> ops;
-
-    auto get_precedence = [](const std::string& op) -> int {
-        if (op == "*" || op == "/") return 2;
-        if (op == "+" || op == "-") return 1;
-        if (op == "(") return 3; 
-        return 0;
-    };
-
-    for (auto &t : expr) {
-        if (t.category == Lexer::INTEGER_LITERAL) {
-            nodes.push(std::make_unique<NumberLiteral>(t.value));
-        } else if (t.category == Lexer::IDENTIFIER) {
-            nodes.push(std::make_unique<VariableCall>(t.value));
-        } else if (t.category == Lexer::PUNCTUATOR && t.value == "(") {
-            ops.push(t.value);
-        } else if (t.category == Lexer::PUNCTUATOR && t.value == ")") {
-            while (!ops.empty() && ops.top() != "(") {
-                auto right = std::move(nodes.top());
-                nodes.pop();
-                auto left = std::move(nodes.top());
-                nodes.pop();
-
-                auto op = ops.top();
-                ops.pop();
-
-                auto expr = std::make_unique<BinaryOperation>();
-                expr->left = std::move(left);
-                expr->op = op;
-                expr->right = std::move(right);
-                nodes.push(std::move(expr));
-            }
-            if (!ops.empty()) ops.pop();
-        } else if (t.category == Lexer::OPERATOR) {
-            while (!ops.empty() && get_precedence(ops.top()) >= get_precedence(t.value) && ops.top() != "(") {
-                auto right = std::move(nodes.top());
-                nodes.pop();
-                auto left = std::move(nodes.top());
-                nodes.pop();
-
-                auto op = ops.top();
-                ops.pop();
-
-                auto expr = std::make_unique<BinaryOperation>();
-                expr->left = std::move(left);
-                expr->op = op;
-                expr->right = std::move(right);
-                nodes.push(std::move(expr));
-            }
-            ops.push(t.value);
-        }
-    }
-
-    while (!ops.empty()) {
-        auto right = std::move(nodes.top());
-        nodes.pop();
-        auto left = std::move(nodes.top());
-        nodes.pop();
-
-        auto op = ops.top();
-        ops.pop();
-
-        auto expr = std::make_unique<BinaryOperation>();
-        expr->left = std::move(left);
-        expr->op = op;
-        expr->right = std::move(right);
-        nodes.push(std::move(expr));
-    }
-
-    return std::move(nodes.top());
+std::unique_ptr<Parser::Node> Parser::expression() {
+    return equality();
 }
 
-bool Parser::match_keyword(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &key) {
-    return (expr[i].category == Lexer::KEYWORD && expr[i].value == Lexer::keywords.at(key));
+std::unique_ptr<Parser::Node> Parser::equality() {
+    auto expr = comparison();
+
+    while (match({"==", "!="})) {
+        std::string op = previous().value;
+        auto right = comparison();
+        expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
+    }
+
+    return expr;
 }
 
-bool Parser::match_identifier(const std::vector<Lexer::Token> &expr, const size_t &i, const std::string &value) {
-    return (expr[i].category == Lexer::IDENTIFIER && expr[i].value == value);
+std::unique_ptr<Parser::Node> Parser::comparison() {
+    auto expr = term();
+
+    while (match({"<", "<=", ">", ">="})) {
+        std::string op = previous().value;
+        auto right = term();
+        expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Parser::Node> Parser::term() {
+    auto left = factor();
+
+    while (match({"+", "-"})) {
+        std::string op = previous().value;
+        auto right = factor();
+        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Parser::Node> Parser::factor() {
+    auto left = unary();
+
+    while (match({"*", "/"})) {
+        std::string op = previous().value;
+        auto right = unary();
+        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Parser::Node> Parser::unary() {
+    if (match({"-", "!"})) {
+        std::string op = previous().value;
+        auto right = unary();
+        return std::make_unique<UnaryOperation>(op, std::move(right));
+    }
+
+    return primary();
+}
+
+std::unique_ptr<Parser::Node> Parser::primary() {
+    if (peek().category == Lexer::TokenCategory::INTEGER_LITERAL) {
+        std::string value = peek().value;
+        advance();
+        return std::make_unique<NumberLiteral>(value);
+    } else if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
+        std::string value = peek().value;
+        advance();
+        return std::make_unique<VariableCall>(value);
+    } else if (peek().category == Lexer::TokenCategory::STRING_LITERAL) {
+        std::string value = peek().value;
+        advance();
+        return std::make_unique<StringLiteral>(value);
+    } else if (match({"("})) {
+        auto expr = expression();
+        consume(")", "Expected ')' after expression");
+        return expr;
+    }
+
+    error("Unexpected token '" + peek().value + "'");
 }
 
 const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {

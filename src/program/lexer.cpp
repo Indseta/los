@@ -1,51 +1,46 @@
 #include <program/lexer.h>
 
-const std::unordered_map<std::string, std::string> Lexer::keywords = {
-    {"var_type_string", "string"},
-    {"var_type_int8", "i8"},
-    {"var_type_int16", "i16"},
-    {"var_type_int32", "i32"},
-    {"var_type_int64", "i64"},
-    {"var_type_float8", "f8"},
-    {"var_type_float16", "f16"},
-    {"var_type_float32", "f32"},
-    {"var_type_float64", "f64"},
-    {"var_type_bool", "bool"},
-    {"var_assign", "var"},
-    {"func_assign", "function"},
-    {"func_exit", "return"},
-    {"cnd_entry", "if"},
-    {"cnd_exit", "else"},
-    {"loop_cls", "for"},
-    {"loop_cnd", "while"},
-    {"loop_exit", "break"},
-    {"loop_skip", "continue"},
+const std::vector<std::string> Lexer::keywords = {
+    "println",
+    "let",
+    "var",
+    "const",
+    "function",
+    "return",
+    "true",
+    "false",
+    "if",
+    "else",
+    "for",
+    "while",
+    "break",
+    "continue",
 };
 
-const std::unordered_map<std::string, std::string> Lexer::operators = {
-    {"assign", "="},
-    {"plus", "+"},
-    {"minus", "-"},
-    {"multiply", "*"},
-    {"divide", "/"},
-    {"equality", "=="},
-    {"inequality", "!="},
-    {"greater", ">"},
-    {"greater_equal", ">="},
-    {"less", ">"},
-    {"less_equal", ">="},
+const std::vector<std::string> Lexer::operators = {
+    "=",
+    "+",
+    "-",
+    "*",
+    "/",
+    "==",
+    "!=",
+    ">",
+    ">=",
+    ">",
+    ">=",
 };
 
-const std::unordered_map<std::string, std::string> Lexer::punctuators = {
-    {"end", ";"},
-    {"obj_sep", "."},
-    {"elm_sep", ","},
-    {"group_open", "("},
-    {"group_close", ")"},
-    {"memsp_open", "{"},
-    {"memsp_close", "}"},
-    {"subsc_open", "["},
-    {"subsc_close", "]"},
+const std::vector<std::string> Lexer::punctuators = {
+    ";",
+    ".",
+    ",",
+    "(",
+    ")",
+    "{",
+    "}",
+    "[",
+    "]",
 };
 
 Lexer::Lexer(const Source &source) {
@@ -64,6 +59,7 @@ void Lexer::lex(const std::string &raw) {
         }
 
         // Reset token value
+        ct.category = UNKNOWN;
         ct.value = "";
 
         // Keyword & identifier
@@ -110,15 +106,25 @@ void Lexer::lex(const std::string &raw) {
             continue;
         }
 
+        // String literal
+        if (c == '"') {
+            while (i + 1 < raw.length() && raw[i + 1] != '"') {
+                ct.value += raw[++i];
+            }
+            ct.category = STRING_LITERAL;
+            tokens.push_back(ct);
+            ++i;
+            continue;
+        }
+
         // Unkown token
-        ct.category = UNKNOWN;
         tokens.push_back(ct);
     }
 }
 
 const bool Lexer::is_keyword(const std::string &value) const {
     for (const auto &e : keywords) {
-        if (value == e.second) {
+        if (value == e) {
             return true;
         }
     }
@@ -127,7 +133,7 @@ const bool Lexer::is_keyword(const std::string &value) const {
 
 const bool Lexer::is_operator(const std::string &value) const {
     for (const auto& e : operators) {
-        if (value == e.second) {
+        if (value == e) {
             return true;
         }
     }
@@ -136,7 +142,7 @@ const bool Lexer::is_operator(const std::string &value) const {
 
 const bool Lexer::is_punctuator(const std::string &value) const {
     for (const auto& e : punctuators) {
-        if (value == e.second) {
+        if (value == e) {
             return true;
         }
     }
@@ -145,4 +151,20 @@ const bool Lexer::is_punctuator(const std::string &value) const {
 
 const std::vector<Lexer::Token>& Lexer::get() const {
     return tokens;
+}
+
+void Lexer::Token::log() const {
+    std::cout << "(";
+    switch (category) {
+        case PUNCTUATOR: std::cout << "punctuator"; break;
+        case KEYWORD: std::cout << "keyword"; break;
+        case IDENTIFIER: std::cout << "identifier"; break;
+        case OPERATOR: std::cout << "operator"; break;
+        case INTEGER_LITERAL: std::cout << "integer_literal"; break;
+        case STRING_LITERAL: std::cout << "string_literal"; break;
+        case LINE_COMMENT: std::cout << "line_comment"; break;
+        case BLOCK_COMMENT: std::cout << "block_comment"; break;
+        default: std::cout << "unknown"; break;
+    }
+    std::cout << "): '" << value << "'" << '\n';
 }

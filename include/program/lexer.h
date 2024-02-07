@@ -12,9 +12,9 @@
 
 class Lexer {
 public:
-    static const std::unordered_map<std::string, std::string> keywords;
-    static const std::unordered_map<std::string, std::string> operators;
-    static const std::unordered_map<std::string, std::string> punctuators;
+    static const std::vector<std::string> keywords;
+    static const std::vector<std::string> operators;
+    static const std::vector<std::string> punctuators;
 
     enum TokenCategory {
         PUNCTUATOR,
@@ -30,22 +30,9 @@ public:
 
     struct Token {
         TokenCategory category = TokenCategory::UNKNOWN;
+        size_t line;
         std::string value = "";
-        void log() const {
-            std::cout << "(";
-            switch (category) {
-                case PUNCTUATOR: std::cout << "punctuator"; break;
-                case KEYWORD: std::cout << "keyword"; break;
-                case IDENTIFIER: std::cout << "identifier"; break;
-                case OPERATOR: std::cout << "operator"; break;
-                case INTEGER_LITERAL: std::cout << "integer_literal"; break;
-                case STRING_LITERAL: std::cout << "string_literal"; break;
-                case LINE_COMMENT: std::cout << "line_comment"; break;
-                case BLOCK_COMMENT: std::cout << "block_comment"; break;
-                default: std::cout << "unknown"; break;
-            }
-            std::cout << "): '" << value << "'" << '\n';
-        }
+        void log() const;
     };
 
     Lexer(const Source &source);
