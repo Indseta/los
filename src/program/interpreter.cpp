@@ -8,11 +8,26 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &as
     for (const auto &tree : ast) {
         if (const auto *expr = dynamic_cast<const Parser::Node*>(tree.get())) {
             if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
-                const auto res = evaluate(node->expr.get());
-                memory[node->identifier] = res;
-            } else if (const auto *node = dynamic_cast<const Parser::LogStatement*>(expr)) {
-                const auto res = evaluate(node->expr.get());
-                std::cout << res.value << '\n';
+                auto res = evaluate_node(node->expr.get());
+                heap[node->identifier] = std::move(res);
+            } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+                std::vector<std::unique_ptr<Type>> args;
+                for (const auto &a : node->args) {
+                    auto res = evaluate_node(a.get());
+                    args.push_back(std::move(res));
+                }
+                if (node->identifier == "println") {
+                    switch (args.size()) {
+                    case 0:
+                        throw std::runtime_error("Too few arguments in function call: " + node->identifier);
+                        break;
+                    default:
+                        for (const auto &a : args) {
+                            a->log();
+                        }
+                        break;
+                    }
+                } else {}
             } else {
                 std::cout << "Unsupported AST node type encountered" << '\n';
             }
@@ -22,59 +37,43 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &as
     }
 }
 
-Interpreter::Res Interpreter::evaluate(const Parser::Node *node) {
-    if (const auto *expr = dynamic_cast<const Parser::NumberLiteral*>(node)) {
-        Res res(expr->value, "int");
-        return res;
-    } else if (const auto *expr = dynamic_cast<const Parser::VariableCall*>(node)) {
-        auto r = memory.find(expr->value);
-        if (r != memory.end()) {
-            return r->second;
-        }
-        throw std::runtime_error("Undefined variable: " + expr->value);
+std::unique_ptr<Interpreter::Type> Interpreter::evaluate_node(const Parser::Node *node) {
+    if (const auto *expr = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
+        return std::make_unique<Int>(expr->value);
+    } else if (const auto* expr = dynamic_cast<const Parser::FloatLiteral*>(node)) {
+        return std::make_unique<Float>(expr->value);
+    } else if (const auto* expr = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
+        return std::make_unique<Bool>(expr->value);
     } else if (const auto* expr = dynamic_cast<const Parser::StringLiteral*>(node)) {
-        Res res(expr->value, "string");
-        return res;
-    } else if (const auto *expr = dynamic_cast<const Parser::BinaryOperation*>(node)) {
-        Res left = evaluate(expr->left.get());
-        Res right = evaluate(expr->right.get());
-        if (expr->op == "+") {
-            Res res(add(left.value, right.value), "int");
-            return res;
-        } else if (expr->op == "-") {
-            Res res(sub(left.value, right.value), "int");
-            return res;
-        } else if (expr->op == "*") {
-            Res res(mul(left.value, right.value), "int");
-            return res;
-        } else if (expr->op == "/") {
-            if (right.value == "0") throw std::runtime_error("Division by zero error");
-            Res res(div(left.value, right.value), "int");
-            return res;
+        return std::make_unique<String>(expr->value);
+    } else if (const auto *expr = dynamic_cast<const Parser::VariableCall*>(node)) {
+        auto r = heap.find(expr->identifier);
+        if (r != heap.end()) {
+            return r->second->clone();
         } else {
-            throw std::runtime_error("Unsupported operator: " + expr->op);
+            throw std::runtime_error("Undefined variable: " + expr->identifier);
+        }
+    } else if (const auto *expr = dynamic_cast<const Parser::BinaryOperation*>(node)) {
+        auto left_ptr = evaluate_node(expr->left.get());
+        auto right_ptr = evaluate_node(expr->right.get());
+
+        if (auto left = dynamic_cast<Int*>(left_ptr.get()), right = dynamic_cast<Int*>(right_ptr.get()); left && right) {
+            if (expr->op == "+") {
+                return std::make_unique<Int>(left->value + right->value);
+            } else if (expr->op == "-") {
+                return std::make_unique<Int>(left->value - right->value);
+            } else if (expr->op == "*") {
+                return std::make_unique<Int>(left->value * right->value);
+            } else if (expr->op == "/") {
+                if (right->value == 0) throw std::runtime_error("Division by zero");
+                return std::make_unique<Int>(left->value / right->value);
+            } else {
+                throw std::runtime_error("Unsupported operator: " + expr->op);
+            }
+        } else {
+            throw std::runtime_error("Type mismatch or unsupported types for binary operation");
         }
     } else {
         throw std::runtime_error("Unsupported AST node type");
-    }
-}
-
-const std::string Interpreter::add(const std::string &a, const std::string &b) const {
-    return std::to_string(std::stoi(a) + std::stoi(a));
-}
-const std::string Interpreter::sub(const std::string &a, const std::string &b) const {
-    return std::to_string(std::stoi(a) - std::stoi(a));
-}
-const std::string Interpreter::mul(const std::string &a, const std::string &b) const {
-    return std::to_string(std::stoi(a) * std::stoi(a));
-}
-const std::string Interpreter::div(const std::string &a, const std::string &b) const {
-    return std::to_string(std::stoi(a) / std::stoi(a));
-}
-
-void Interpreter::log() const {
-    std::cout << "Variables:\n";
-    for (const auto &var : memory) {
-        std::cout << var.first << " = " << var.second.value << "\n";
     }
 }

@@ -1,7 +1,6 @@
 #include <program/lexer.h>
 
 const std::vector<std::string> Lexer::keywords = {
-    "println",
     "let",
     "var",
     "const",
@@ -62,24 +61,35 @@ void Lexer::lex(const std::string &raw) {
         ct.category = UNKNOWN;
         ct.value = "";
 
-        // Keyword & identifier
+        // Keyword, identifier & boolean literal
         if (std::isalpha(c)) {
             ct.value += c;
             while (i + 1 < raw.length() && (std::isalpha(raw[i + 1]) || std::isdigit(raw[i + 1]))) {
                 ct.value += raw[++i];
             }
-            ct.category = is_keyword(ct.value) ? KEYWORD : IDENTIFIER;
+            if (ct.value == "false" || ct.value == "true") {
+                ct.category = BOOLEAN_LITERAL;
+            } else {
+                ct.category = is_keyword(ct.value) ? KEYWORD : IDENTIFIER;
+            }
             tokens.push_back(ct);
             continue;
         }
 
-        // Integer literal
+        // Integer & float literal
         if (std::isdigit(c)) {
             ct.value += c;
             while (i + 1 < raw.length() && std::isdigit(raw[i + 1])) {
                 ct.value += raw[++i];
             }
             ct.category = INTEGER_LITERAL;
+            if (raw[i + 1] == '.' && std::isdigit(raw[i + 2])) {
+                ct.value += raw[++i];
+                while (i + 1 < raw.length() && std::isdigit(raw[i + 1])) {
+                    ct.value += raw[++i];
+                }
+                ct.category = FLOAT_LITERAL;
+            }
             tokens.push_back(ct);
             continue;
         }
@@ -161,6 +171,8 @@ void Lexer::Token::log() const {
         case IDENTIFIER: std::cout << "identifier"; break;
         case OPERATOR: std::cout << "operator"; break;
         case INTEGER_LITERAL: std::cout << "integer_literal"; break;
+        case FLOAT_LITERAL: std::cout << "float_literal"; break;
+        case BOOLEAN_LITERAL: std::cout << "boolean_literal"; break;
         case STRING_LITERAL: std::cout << "string_literal"; break;
         case LINE_COMMENT: std::cout << "line_comment"; break;
         case BLOCK_COMMENT: std::cout << "block_comment"; break;

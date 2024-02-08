@@ -22,6 +22,8 @@ public:
         IDENTIFIER,
         OPERATOR,
         INTEGER_LITERAL,
+        FLOAT_LITERAL,
+        BOOLEAN_LITERAL,
         STRING_LITERAL,
         LINE_COMMENT,
         BLOCK_COMMENT,

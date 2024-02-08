@@ -14,53 +14,64 @@ public:
         virtual void log() const = 0;
     };
 
-    struct LogStatement : public Node {
-        std::unique_ptr<Node> expr;
-        explicit LogStatement(std::unique_ptr<Node> expr) : expr(std::move(expr)) {}
-        void log() const override {}
-    };
-
     struct VariableDeclaration : public Node {
-        VariableDeclaration(std::string op, std::string identifier, std::unique_ptr<Node> expr) : op(std::move(op)), identifier(std::move(identifier)), expr(std::move(expr)) {}
+        VariableDeclaration(const std::string &op, const std::string &identifier, std::unique_ptr<Node> expr) : op(std::move(op)), identifier(std::move(identifier)), expr(std::move(expr)) {}
+        void log() const override {}
         std::string op;
         std::string identifier;
         std::unique_ptr<Node> expr;
-        void log() const override {}
     };
 
     struct BinaryOperation : public Node {
+        BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
+        void log() const override {}
         std::unique_ptr<Node> left;
         std::string op;
         std::unique_ptr<Node> right;
-        BinaryOperation(std::unique_ptr<Node> left, std::string op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
-        void log() const override {}
     };
 
     struct UnaryOperation : public Node {
+        UnaryOperation(const std::string &op, std::unique_ptr<Node> value) : op(std::move(op)), value(std::move(value)) {}
+        void log() const override {}
         std::string op;
-        std::unique_ptr<Node> right;
-
-        UnaryOperation(std::string op, std::unique_ptr<Node> right) : op(std::move(op)), right(std::move(right)) {}
-
-        void log() const override {}
-    };
-
-    struct NumberLiteral : public Node {
-        std::string value;
-        explicit NumberLiteral(const std::string& value) : value(std::move(value)) {}
-        void log() const override {}
-    };
-
-    struct StringLiteral : public Node {
-        std::string value;
-        explicit StringLiteral(const std::string& value) : value(std::move(value)) {}
-        void log() const override {}
+        std::unique_ptr<Node> value;
     };
 
     struct VariableCall : public Node {
-        std::string value;
-        explicit VariableCall(const std::string& value) : value(std::move(value)) {}
+        VariableCall(const std::string &identifier) : identifier(std::move(identifier)) {}
         void log() const override {}
+        std::string identifier;
+    };
+
+    struct FunctionCall : public Node {
+        FunctionCall(const std::string &identifier) : identifier(std::move(identifier)) {}
+        void log() const override {}
+        std::string identifier;
+        std::vector<std::unique_ptr<Node>> args;
+    };
+
+    struct IntegerLiteral : public Node {
+        IntegerLiteral(const int &value) : value(std::move(value)) {}
+        void log() const override {}
+        int value;
+    };
+
+    struct FloatLiteral : public Node {
+        FloatLiteral(const float &value) : value(std::move(value)) {}
+        void log() const override {}
+        float value;
+    };
+
+    struct BooleanLiteral : public Node {
+        BooleanLiteral(const bool &value) : value(std::move(value)) {}
+        void log() const override {}
+        bool value;
+    };
+
+    struct StringLiteral : public Node {
+        StringLiteral(const std::string &value) : value(std::move(value)) {}
+        void log() const override {}
+        std::string value;
     };
 
     Parser(const Lexer &lexer);
@@ -83,6 +94,7 @@ private:
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> log_statement();
     std::unique_ptr<Node> variable_declaration();
+    std::unique_ptr<Node> function_call();
     std::unique_ptr<Node> expression();
     std::unique_ptr<Node> equality();
     std::unique_ptr<Node> comparison();
@@ -90,4 +102,5 @@ private:
     std::unique_ptr<Node> factor();
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
+    const bool stob(const std::string &value) const;
 };

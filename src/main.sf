@@ -1,3 +1,5 @@
-let greet = "Hello world";
-println(greet);
-println(32);
+let x = 32;
+let y = 16.24;
+let z = true;
+let w = "Hello world";
+println(x, y, z, w);

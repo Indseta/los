@@ -51,14 +51,8 @@ void Parser::error(const std::string &msg) const {
 
 std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"let", "var", "const"})) return variable_declaration();
-    if (match({"println"})) return log_statement();
+    if (advance().category == Lexer::TokenCategory::IDENTIFIER && peek().value == "(") return function_call();
     return expression();
-}
-
-std::unique_ptr<Parser::Node> Parser::log_statement() {
-    auto value = expression();
-    consume(";", "Expect ';' after value.");
-    return std::make_unique<LogStatement>(std::move(value));
 }
 
 std::unique_ptr<Parser::Node> Parser::variable_declaration() {
@@ -69,10 +63,25 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration() {
     } else {
         error("Expected identifier");
     }
-    consume("=", "Expected '=' after variable identifier");
+    consume("=", "Expected '='");
     auto value = expression();
-    consume(";", "Expected ';' after variable declaration");
+    consume(";", "Expected ';' after statement");
     return std::make_unique<VariableDeclaration>(op, identifier, std::move(value));
+}
+
+std::unique_ptr<Parser::Node> Parser::function_call() {
+    auto function = std::make_unique<FunctionCall>(previous().value);
+    advance();
+    while (peek().value != ")") {
+        auto value = expression();
+        function->args.push_back(std::move(value));
+        if (peek().value != ")") {
+            consume(",", "Expected ','");
+        }
+    }
+    advance();
+    consume(";", "Expected ';' after statement");
+    return function;
 }
 
 std::unique_ptr<Parser::Node> Parser::expression() {
@@ -139,17 +148,15 @@ std::unique_ptr<Parser::Node> Parser::unary() {
 
 std::unique_ptr<Parser::Node> Parser::primary() {
     if (peek().category == Lexer::TokenCategory::INTEGER_LITERAL) {
-        std::string value = peek().value;
-        advance();
-        return std::make_unique<NumberLiteral>(value);
-    } else if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
-        std::string value = peek().value;
-        advance();
-        return std::make_unique<VariableCall>(value);
+        return std::make_unique<IntegerLiteral>(std::stoi(advance().value));
+    } else if (peek().category == Lexer::TokenCategory::FLOAT_LITERAL) {
+        return std::make_unique<FloatLiteral>(std::stof(advance().value));
+    } else if (peek().category == Lexer::TokenCategory::BOOLEAN_LITERAL) {
+        return std::make_unique<BooleanLiteral>(advance().value == "true");
     } else if (peek().category == Lexer::TokenCategory::STRING_LITERAL) {
-        std::string value = peek().value;
-        advance();
-        return std::make_unique<StringLiteral>(value);
+        return std::make_unique<StringLiteral>(advance().value);
+    } else if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
+        return std::make_unique<VariableCall>(advance().value);
     } else if (match({"("})) {
         auto expr = expression();
         consume(")", "Expected ')' after expression");
@@ -157,6 +164,16 @@ std::unique_ptr<Parser::Node> Parser::primary() {
     }
 
     error("Unexpected token '" + peek().value + "'");
+}
+
+const bool Parser::stob(const std::string &value) const {
+    if (value == "true") {
+        return true;
+    } else if (value == "false") {
+        return false;
+    } else {
+        throw std::runtime_error("Unexpected value: " + value);
+    }
 }
 
 const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {
