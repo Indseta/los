@@ -12,7 +12,7 @@ public:
     struct Type {
         virtual ~Type() = default;
         virtual std::unique_ptr<Type> clone() const = 0;
-        virtual void log() const = 0;
+        virtual void log() const {}
     };
 
     struct Int : public Type {
@@ -67,6 +67,7 @@ public:
     void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
 private:
+    void interpret_node(const Parser::Node *expr);
     std::unique_ptr<Type> evaluate_node(const Parser::Node *node);
 
     std::unordered_map<std::string, std::unique_ptr<Type>> heap;

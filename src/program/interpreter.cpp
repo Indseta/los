@@ -7,33 +7,50 @@ Interpreter::Interpreter(const Parser &parser) {
 void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
     for (const auto &tree : ast) {
         if (const auto *expr = dynamic_cast<const Parser::Node*>(tree.get())) {
-            if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
-                auto res = evaluate_node(node->expr.get());
-                heap[node->identifier] = std::move(res);
-            } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
-                std::vector<std::unique_ptr<Type>> args;
-                for (const auto &a : node->args) {
-                    auto res = evaluate_node(a.get());
-                    args.push_back(std::move(res));
-                }
-                if (node->identifier == "println") {
-                    switch (args.size()) {
-                    case 0:
-                        throw std::runtime_error("Too few arguments in function call: " + node->identifier);
-                        break;
-                    default:
-                        for (const auto &a : args) {
-                            a->log();
-                        }
-                        break;
-                    }
-                } else {}
-            } else {
-                std::cout << "Unsupported AST node type encountered" << '\n';
+            interpret_node(expr);
+        } else {
+            std::cout << "Unknown node type encountered" << '\n';
+        }
+    }
+}
+
+void Interpreter::interpret_node(const Parser::Node *expr) {
+    if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
+        auto res = evaluate_node(node->expr.get());
+        heap[node->identifier] = std::move(res);
+    } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
+        interpret(node->ast);
+    } else if (const auto *node = dynamic_cast<const Parser::ConditionalStatement*>(expr)) {
+        auto res = evaluate_node(node->condition.get());
+        if (auto res_bool = dynamic_cast<Bool*>(res.get())) {
+            if (res_bool->value) {
+                interpret_node(node->statement.get());
             }
         } else {
-            std::cout << "Unsupported AST node type encountered" << '\n';
+            throw std::runtime_error("Expected a boolean expression");
         }
+    } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+        std::vector<std::unique_ptr<Type>> args;
+        for (const auto &a : node->args) {
+            auto res = evaluate_node(a.get());
+            args.push_back(std::move(res));
+        }
+        if (node->identifier == "println") {
+            switch (args.size()) {
+            case 0:
+                throw std::runtime_error("Too few arguments in function call: " + node->identifier);
+                break;
+            default:
+                for (const auto &a : args) {
+                    a->log();
+                }
+                break;
+            }
+        } else {}
+    } else {
+        std::cout << "Unsupported AST node encountered:" << '\n';
+        expr->log();
+        std::cout << '\n';
     }
 }
 
@@ -58,7 +75,15 @@ std::unique_ptr<Interpreter::Type> Interpreter::evaluate_node(const Parser::Node
         auto right_ptr = evaluate_node(expr->right.get());
 
         if (auto left = dynamic_cast<Int*>(left_ptr.get()), right = dynamic_cast<Int*>(right_ptr.get()); left && right) {
-            if (expr->op == "+") {
+            if (expr->op == "<") {
+                return std::make_unique<Bool>(left->value < right->value);
+            } else if (expr->op == ">") {
+                return std::make_unique<Bool>(left->value > right->value);
+            } else if (expr->op == "<=") {
+                return std::make_unique<Bool>(left->value <= right->value);
+            } else if (expr->op == ">=") {
+                return std::make_unique<Bool>(left->value >= right->value);
+            } else if (expr->op == "+") {
                 return std::make_unique<Int>(left->value + right->value);
             } else if (expr->op == "-") {
                 return std::make_unique<Int>(left->value - right->value);

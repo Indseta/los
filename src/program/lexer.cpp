@@ -178,5 +178,5 @@ void Lexer::Token::log() const {
         case BLOCK_COMMENT: std::cout << "block_comment"; break;
         default: std::cout << "unknown"; break;
     }
-    std::cout << "): '" << value << "'" << '\n';
+    std::cout << "): '" << value << "'";
 }

@@ -6,13 +6,13 @@ Parser::Parser(const Lexer &lexer) : tokens(lexer.get()) {
 
 void Parser::parse() {
     std::vector<std::unique_ptr<Node>> statements;
-    while (!isAtEnd()) {
+    while (!at_end()) {
         statements.push_back(std::move(statement()));
     }
     ast = std::move(statements);
 }
 
-bool Parser::isAtEnd() const {
+bool Parser::at_end() const {
     return current >= tokens.size();
 }
 
@@ -20,18 +20,22 @@ const Lexer::Token& Parser::peek() const {
     return tokens[current];
 }
 
+const Lexer::Token& Parser::next() const {
+    return at_end() ? tokens[current] : tokens[current + 1];
+}
+
 const Lexer::Token& Parser::previous() const {
     return tokens[current - 1];
 }
 
 const Lexer::Token& Parser::advance() {
-    if (!isAtEnd()) current++;
+    if (!at_end()) current++;
     return previous();
 }
 
 bool Parser::match(std::initializer_list<std::string> types) {
     for (const std::string &type : types) {
-        if (peek().value == type && !isAtEnd()) {
+        if (peek().value == type && !at_end()) {
             current++;
             return true;
         }
@@ -51,8 +55,31 @@ void Parser::error(const std::string &msg) const {
 
 std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"let", "var", "const"})) return variable_declaration();
-    if (advance().category == Lexer::TokenCategory::IDENTIFIER && peek().value == "(") return function_call();
+    if (match({"if", "else"})) return conditional_statement();
+    if (match({"{"})) return scope_declaration();
+    if (peek().category == Lexer::TokenCategory::IDENTIFIER && next().value == "(") return function_call();
     return expression();
+}
+
+std::unique_ptr<Parser::Node> Parser::conditional_statement() {
+    auto conditional = std::make_unique<ConditionalStatement>();
+    conditional->op = previous().value;
+    if (conditional->op == "if") {
+        consume("(", "Expected '(");
+        conditional->condition = std::move(expression());
+        consume(")", "Expected ')");
+    }
+    conditional->statement = std::move(statement());
+    return conditional;
+}
+
+std::unique_ptr<Parser::Node> Parser::scope_declaration() {
+    auto scope = std::make_unique<ScopeDeclaration>();
+    while (peek().value != "}") {
+        scope->ast.push_back(std::move(statement()));
+    }
+    advance();
+    return scope;
 }
 
 std::unique_ptr<Parser::Node> Parser::variable_declaration() {
@@ -70,11 +97,10 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration() {
 }
 
 std::unique_ptr<Parser::Node> Parser::function_call() {
-    auto function = std::make_unique<FunctionCall>(previous().value);
+    auto function = std::make_unique<FunctionCall>(advance().value);
     advance();
     while (peek().value != ")") {
-        auto value = expression();
-        function->args.push_back(std::move(value));
+        function->args.push_back(std::move(expression()));
         if (peek().value != ")") {
             consume(",", "Expected ','");
         }

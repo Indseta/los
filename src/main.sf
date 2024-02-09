@@ -1,5 +1,6 @@
 let x = 32;
 let y = 16.24;
 let z = true;
-let w = "Hello world";
-println(x, y, z, w);
+if (false) {
+    println("Hello world");
+}
