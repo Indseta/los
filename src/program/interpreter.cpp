@@ -5,118 +5,148 @@ Interpreter::Interpreter(const Parser &parser) {
 }
 
 void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
-    for (const auto &tree : ast) {
-        if (const auto *expr = dynamic_cast<const Parser::Node*>(tree.get())) {
-            interpret_node(expr);
-        } else {
-            std::cout << "Unknown node type encountered" << '\n';
-        }
+    for (const auto &t : ast) {
+        interpret_node(t.get());
     }
 }
 
 void Interpreter::interpret_node(const Parser::Node *expr) {
     if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
-        auto res = evaluate_node(node->expr.get());
-        heap[node->identifier] = std::move(res);
+        Value val = evaluate_node(node->expr.get());
+        heap[node->identifier] = val;
     } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
-        interpret(node->ast);
-    } else if (const auto *node = dynamic_cast<const Parser::ConditionalStatement*>(expr)) {
-        auto res = evaluate_node(node->condition.get());
-        if (auto res_bool = dynamic_cast<Bool*>(res.get())) {
-            if (res_bool->value) {
-                interpret_node(node->pass_statement.get());
-            } else {
-                interpret_node(node->fail_statement.get());
-            }
-        } else {
-            throw std::runtime_error("Expected a boolean expression");
+        for (const auto &n : node->ast) {
+            interpret_node(n.get());
         }
-    } else if (const auto *node = dynamic_cast<const Parser::PassStatement*>(expr)) {
-    } else if (const auto *node = dynamic_cast<const Parser::WhileLoopStatement*>(expr)) {
-        if (auto res = dynamic_cast<Bool*>(evaluate_node(node->condition.get()).get())) {
-            while (res->value) {
-                interpret_node(node->statement.get());
-                res = dynamic_cast<Bool*>(evaluate_node(node->condition.get()).get());
-            }
+    } else if (const auto *node = dynamic_cast<const Parser::ConditionalStatement*>(expr)) {
+        Value condition = evaluate_node(node->condition.get());
+        if (std::holds_alternative<bool>(condition) && std::get<bool>(condition)) {
+            interpret_node(node->pass_statement.get());
         } else {
-            throw std::runtime_error("Expected a boolean expression");
+            interpret_node(node->fail_statement.get());
+        }
+    } else if (const auto *node = dynamic_cast<const Parser::WhileLoopStatement*>(expr)) {
+        while (std::holds_alternative<bool>(evaluate_node(node->condition.get())) && std::get<bool>(evaluate_node(node->condition.get()))) {
+            interpret_node(node->statement.get());
         }
     } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
-        std::vector<std::unique_ptr<Type>> args;
-        for (const auto &a : node->args) {
-            auto res = evaluate_node(a.get());
-            args.push_back(std::move(res));
-        }
         if (node->identifier == "println") {
-            switch (args.size()) {
-            case 0:
-                throw std::runtime_error("Too few arguments in function call: " + node->identifier);
-                break;
-            default:
-                for (const auto &a : args) {
-                    a->log();
-                }
-                break;
+            for (const auto &a : node->args) {
+                Value val = evaluate_node(a.get());
+                std::visit([](auto &&a) {
+                    std::cout << a << '\n';
+                }, val);
             }
-        } else {}
+        }
     } else {
-        std::cout << "Unsupported statement encountered:" << '\n';
-        expr->log();
-        std::cout << '\n';
+        throw std::runtime_error("Unsupported node type encountered.");
     }
 }
 
-std::unique_ptr<Interpreter::Type> Interpreter::evaluate_node(const Parser::Node *node) {
-    if (const auto *expr = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
-        return std::make_unique<Int>(expr->value);
-    } else if (const auto* expr = dynamic_cast<const Parser::FloatLiteral*>(node)) {
-        return std::make_unique<Float>(expr->value);
-    } else if (const auto* expr = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
-        return std::make_unique<Bool>(expr->value);
-    } else if (const auto* expr = dynamic_cast<const Parser::StringLiteral*>(node)) {
-        return std::make_unique<String>(expr->value);
-    } else if (const auto *expr = dynamic_cast<const Parser::VariableCall*>(node)) {
-        auto r = heap.find(expr->identifier);
-        if (r != heap.end()) {
-            return r->second->clone();
+Interpreter::Value Interpreter::evaluate_node(const Parser::Node *node) {
+    if (const auto *n = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
+        return n->value;
+    } else if (const auto *n = dynamic_cast<const Parser::FloatLiteral*>(node)) {
+        return n->value;
+    } else if (const auto *n = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
+        return n->value;
+    } else if (const auto *n = dynamic_cast<const Parser::StringLiteral*>(node)) {
+        return n->value;
+    } else if (const auto *n = dynamic_cast<const Parser::VariableCall*>(node)) {
+        auto it = heap.find(n->identifier);
+        if (it != heap.end()) {
+            return it->second;
         } else {
-            throw std::runtime_error("Undefined variable: " + expr->identifier);
+            throw std::runtime_error("Variable not defined: " + n->identifier);
         }
-    } else if (const auto *expr = dynamic_cast<const Parser::BinaryOperation*>(node)) {
-        auto left_ptr = evaluate_node(expr->left.get());
-        auto right_ptr = evaluate_node(expr->right.get());
-
-        if (auto left = dynamic_cast<Int*>(left_ptr.get()), right = dynamic_cast<Int*>(right_ptr.get()); left && right) {
-            if (expr->op == "==") {
-                return std::make_unique<Bool>(left->value == right->value);
-            } else if (expr->op == "!=") {
-                return std::make_unique<Bool>(left->value != right->value);
-            } else if (expr->op == "<") {
-                return std::make_unique<Bool>(left->value < right->value);
-            } else if (expr->op == ">") {
-                return std::make_unique<Bool>(left->value > right->value);
-            } else if (expr->op == "<=") {
-                return std::make_unique<Bool>(left->value <= right->value);
-            } else if (expr->op == ">=") {
-                return std::make_unique<Bool>(left->value >= right->value);
-            } else if (expr->op == "+") {
-                return std::make_unique<Int>(left->value + right->value);
-            } else if (expr->op == "-") {
-                return std::make_unique<Int>(left->value - right->value);
-            } else if (expr->op == "*") {
-                return std::make_unique<Int>(left->value * right->value);
-            } else if (expr->op == "/") {
-                if (right->value == 0) throw std::runtime_error("Division by zero");
-                return std::make_unique<Int>(left->value / right->value);
-            } else if (expr->op == "%") {
-                return std::make_unique<Int>(left->value % right->value);
-            } else {
-                throw std::runtime_error("Unsupported operator: " + expr->op);
-            }
-        } else {
-            throw std::runtime_error("Type mismatch or unsupported types for binary operation");
-        }
-    } else {
-        throw std::runtime_error("Unsupported expression encountered");
+    } else if (const auto *n = dynamic_cast<const Parser::BinaryOperation*>(node)) {
+        return evaluate_binary_operation(n);
     }
+
+    throw std::runtime_error("Unsupported node encountered in evaluation.");
+}
+
+Interpreter::Value Interpreter::evaluate_binary_operation(const Parser::BinaryOperation *expr) {
+    Value left = evaluate_node(expr->left.get());
+    Value right = evaluate_node(expr->right.get());
+    const std::string& op = expr->op;
+
+    if (op == "==" || op == "!=") {
+        bool result = custom_compare(left, right);
+        if (op == "!=") result = !result;
+        return result;
+    } else if (op == "<" || op == "<=" || op == ">" || op == ">=") {
+        return perform_comparison_operation(left, right, op);
+    } else {
+        return perform_arithmetic_operation(left, right, op);
+    }
+}
+
+bool Interpreter::custom_compare(const Interpreter::Value &left, const Interpreter::Value &right) {
+    if (std::holds_alternative<std::string>(left) || std::holds_alternative<std::string>(right)) {
+    }
+
+    if (std::holds_alternative<bool>(left) || std::holds_alternative<bool>(right)) {
+        auto bool_to_numeric = [](bool b) -> float { return b ? 1.0f : 0.0f; };
+
+        float leftVal = std::holds_alternative<bool>(left) ? bool_to_numeric(std::get<bool>(left)) : 
+                        std::holds_alternative<int>(left) ? static_cast<float>(std::get<int>(left)) : 
+                        std::get<float>(left);
+
+        float rightVal = std::holds_alternative<bool>(right) ? bool_to_numeric(std::get<bool>(right)) : 
+                         std::holds_alternative<int>(right) ? static_cast<float>(std::get<int>(right)) : 
+                         std::get<float>(right);
+
+        return leftVal == rightVal;
+    }
+
+    if (std::holds_alternative<int>(left) && std::holds_alternative<float>(right)) {
+        return static_cast<float>(std::get<int>(left)) == std::get<float>(right);
+    }
+    if (std::holds_alternative<float>(left) && std::holds_alternative<int>(right)) {
+        return std::get<float>(left) == static_cast<float>(std::get<int>(right));
+    }
+
+    throw std::runtime_error("Unsupported types for comparison.");
+}
+
+Interpreter::Value Interpreter::perform_comparison_operation(const Interpreter::Value &left, const Interpreter::Value &right, const std::string &op) {
+    auto compare = [&](auto a, auto b) -> bool {
+        if (op == "<") return a < b;
+        if (op == "<=") return a <= b;
+        if (op == ">") return a > b;
+        if (op == ">=") return a >= b;
+        throw std::runtime_error("Unsupported comparison operator: " + op);
+    };
+
+    if (std::holds_alternative<float>(left) || std::holds_alternative<float>(right)) {
+        float leftVal = std::holds_alternative<int>(left) ? std::get<int>(left) : std::get<float>(left);
+        float rightVal = std::holds_alternative<int>(right) ? std::get<int>(right) : std::get<float>(right);
+        return compare(leftVal, rightVal);
+    } else if (std::holds_alternative<int>(left) && std::holds_alternative<int>(right)) {
+        return compare(std::get<int>(left), std::get<int>(right));
+    }
+
+    throw std::runtime_error("Attempt to compare non-numeric types.");
+}
+
+Interpreter::Value Interpreter::perform_arithmetic_operation(const Interpreter::Value &left, const Interpreter::Value &right, const std::string &op) {
+    auto arithmetic_op = [&](auto a, auto b) -> Interpreter::Value {
+        if (op == "+") return a + b;
+        if (op == "-") return a - b;
+        if (op == "*") return a * b;
+        if (op == "/") return static_cast<float>(a) / b;
+        if (op == "%") return static_cast<float>(std::fmod(a, b));
+        throw std::runtime_error("Unsupported operator: " + op);
+    };
+
+    if (std::holds_alternative<float>(left) || std::holds_alternative<float>(right)) {
+        float leftVal = std::holds_alternative<int>(left) ? std::get<int>(left) : std::get<float>(left);
+        float rightVal = std::holds_alternative<int>(right) ? std::get<int>(right) : std::get<float>(right);
+        return arithmetic_op(leftVal, rightVal);
+    } else if (std::holds_alternative<int>(left) && std::holds_alternative<int>(right)) {
+        return arithmetic_op(std::get<int>(left), std::get<int>(right));
+    }
+
+    throw std::runtime_error("Attempt to perform arithmetic on non-numeric types.");
 }

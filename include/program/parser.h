@@ -115,7 +115,7 @@ public:
     };
 
     struct ConditionalStatement : public Node {
-        ConditionalStatement() : pass_statement(std::make_unique<PassStatement>()), fail_statement(std::make_unique<PassStatement>()) {}
+        ConditionalStatement() : pass_statement(std::make_unique<EmptyStatement>()), fail_statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
             std::cout << "ConditionalStatement: (condition: (";
             condition->log();
@@ -144,15 +144,15 @@ public:
         std::vector<std::unique_ptr<Node>> ast;
     };
 
-    struct PassStatement : public Node {
-        PassStatement() {}
+    struct EmptyStatement : public Node {
+        EmptyStatement() {}
         void log() const override {
-            std::cout << "PassStatement";
+            std::cout << "EmptyStatement";
         }
     };
 
     struct WhileLoopStatement : public Node {
-        WhileLoopStatement() {}
+        WhileLoopStatement() : statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
             std::cout << "WhileLoopStatement: (condition: (";
             condition->log();
