@@ -1,6 +1,7 @@
-let x = 32;
-let y = 16.24;
-let z = true;
-if (false) {
-    println("Hello world");
+let i = 0;
+while (true) {
+    if (i % 10000 == 0) {
+        println(i);
+    }
+    let i = i + 1;
 }

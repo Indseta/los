@@ -2,6 +2,7 @@
 
 void Environment::run(const std::string &fp) {
     Source main(fp);
+
     Lexer lexer(main);
     // for (const auto &t : lexer.get()) {
     //     t.log();

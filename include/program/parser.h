@@ -115,17 +115,19 @@ public:
     };
 
     struct ConditionalStatement : public Node {
-        ConditionalStatement() {}
+        ConditionalStatement() : pass_statement(std::make_unique<PassStatement>()), fail_statement(std::make_unique<PassStatement>()) {}
         void log() const override {
-            std::cout << "ConditionalStatement: (op: '" << op << "', condition: (";
+            std::cout << "ConditionalStatement: (condition: (";
             condition->log();
-            std::cout << "), statement: (";
-            statement->log();
+            std::cout << "), pass_statement: (";
+            pass_statement->log();
+            std::cout << "), fail_statement: (";
+            fail_statement->log();
             std::cout << "))";
         }
-        std::string op;
         std::unique_ptr<Node> condition;
-        std::unique_ptr<Node> statement;
+        std::unique_ptr<Node> pass_statement;
+        std::unique_ptr<Node> fail_statement;
     };
 
     struct ScopeDeclaration : public Node {
@@ -140,6 +142,26 @@ public:
             std::cout << "})";
         }
         std::vector<std::unique_ptr<Node>> ast;
+    };
+
+    struct PassStatement : public Node {
+        PassStatement() {}
+        void log() const override {
+            std::cout << "PassStatement";
+        }
+    };
+
+    struct WhileLoopStatement : public Node {
+        WhileLoopStatement() {}
+        void log() const override {
+            std::cout << "WhileLoopStatement: (condition: (";
+            condition->log();
+            std::cout << "), statement: (";
+            statement->log();
+            std::cout << "))";
+        }
+        std::unique_ptr<Node> condition;
+        std::unique_ptr<Node> statement;
     };
 
     Parser(const Lexer &lexer);
@@ -162,6 +184,7 @@ private:
 
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> conditional_statement();
+    std::unique_ptr<Node> while_loop_statement();
     std::unique_ptr<Node> scope_declaration();
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> function_call();
@@ -170,7 +193,7 @@ private:
     std::unique_ptr<Node> comparison();
     std::unique_ptr<Node> term();
     std::unique_ptr<Node> factor();
+    std::unique_ptr<Node> remainder();
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
-    const bool stob(const std::string &value) const;
 };
