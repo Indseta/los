@@ -13,6 +13,14 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &as
 void Interpreter::interpret_node(const Parser::Node *expr) {
     if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
         Value val = evaluate_node(node->expr.get());
+        auto it = heap.find(node->identifier);
+        if (it == heap.end()) {
+            heap[node->identifier] = val;
+        } else {
+            throw std::runtime_error("Variable already defined: " + node->identifier);
+        }
+    } else if (const auto *node = dynamic_cast<const Parser::VariableAssignment*>(expr)) {
+        Value val = evaluate_node(node->expr.get());
         heap[node->identifier] = val;
     } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
         for (const auto &n : node->ast) {
@@ -38,8 +46,9 @@ void Interpreter::interpret_node(const Parser::Node *expr) {
                 }, val);
             }
         }
+    } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
-        throw std::runtime_error("Unsupported node type encountered.");
+        throw std::runtime_error("Unsupported node type encountered");
     }
 }
 
@@ -59,11 +68,36 @@ Interpreter::Value Interpreter::evaluate_node(const Parser::Node *node) {
         } else {
             throw std::runtime_error("Variable not defined: " + n->identifier);
         }
+    } else if (const auto *n = dynamic_cast<const Parser::UnaryOperation*>(node)) {
+        return evaluate_unary_operation(n);
     } else if (const auto *n = dynamic_cast<const Parser::BinaryOperation*>(node)) {
         return evaluate_binary_operation(n);
     }
 
-    throw std::runtime_error("Unsupported node encountered in evaluation.");
+    throw std::runtime_error("Unsupported node encountered in evaluation");
+}
+
+Interpreter::Value Interpreter::evaluate_unary_operation(const Parser::UnaryOperation *expr) {
+    Value operand = evaluate_node(expr->value.get());
+    const std::string &op = expr->op;
+
+    if (op == "-") {
+        if (std::holds_alternative<int>(operand)) {
+            return -std::get<int>(operand);
+        } else if (std::holds_alternative<float>(operand)) {
+            return -std::get<float>(operand);
+        } else {
+            throw std::runtime_error("Unsupported type for unary negation");
+        }
+    } else if (op == "!") {
+        if (std::holds_alternative<bool>(operand)) {
+            return !std::get<bool>(operand);
+        } else {
+            throw std::runtime_error("Unsupported type for logical NOT operator");
+        }
+    }
+
+    throw std::runtime_error("Unsupported unary operator: " + op);
 }
 
 Interpreter::Value Interpreter::evaluate_binary_operation(const Parser::BinaryOperation *expr) {
@@ -71,11 +105,7 @@ Interpreter::Value Interpreter::evaluate_binary_operation(const Parser::BinaryOp
     Value right = evaluate_node(expr->right.get());
     const std::string& op = expr->op;
 
-    if (op == "==" || op == "!=") {
-        bool result = custom_compare(left, right);
-        if (op == "!=") result = !result;
-        return result;
-    } else if (op == "<" || op == "<=" || op == ">" || op == ">=") {
+    if (op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=") {
         return perform_comparison_operation(left, right, op);
     } else {
         return perform_arithmetic_operation(left, right, op);
@@ -112,6 +142,8 @@ bool Interpreter::custom_compare(const Interpreter::Value &left, const Interpret
 
 Interpreter::Value Interpreter::perform_comparison_operation(const Interpreter::Value &left, const Interpreter::Value &right, const std::string &op) {
     auto compare = [&](auto a, auto b) -> bool {
+        if (op == "==") return a == b;
+        if (op == "!=") return a != b;
         if (op == "<") return a < b;
         if (op == "<=") return a <= b;
         if (op == ">") return a > b;
@@ -149,4 +181,10 @@ Interpreter::Value Interpreter::perform_arithmetic_operation(const Interpreter::
     }
 
     throw std::runtime_error("Attempt to perform arithmetic on non-numeric types.");
+}
+
+float Interpreter::modulo(const float &a, const float &b) {
+    if (b < 0) return modulo(-a, -b);
+    float res = std::fmod(a, b);
+    return res >= 0 ? res : res + b;
 }

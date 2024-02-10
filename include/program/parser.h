@@ -15,6 +15,7 @@ public:
     };
 
     struct BinaryOperation : public Node {
+        BinaryOperation() {}
         BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
         void log() const override {
             std::cout << "BinaryOperation: (left: (";
@@ -85,6 +86,17 @@ public:
             std::cout << "))";
         }
         std::string op;
+        std::string identifier;
+        std::unique_ptr<Node> expr;
+    };
+
+    struct VariableAssignment : public Node {
+        VariableAssignment(const std::string &identifier, std::unique_ptr<Node> expr) : identifier(std::move(identifier)), expr(std::move(expr)) {}
+        void log() const override {
+            std::cout << "VariableAssignment: (identifier: '" << identifier << "', expr: (";
+            expr->log();
+            std::cout << "))";
+        }
         std::string identifier;
         std::unique_ptr<Node> expr;
     };
@@ -175,18 +187,20 @@ private:
     void parse();
     bool at_end() const;
     const Lexer::Token& peek() const;
-    const Lexer::Token& next() const;
     const Lexer::Token& previous() const;
-    bool match(std::initializer_list<std::string> types);
+    const Lexer::Token& next() const;
     const Lexer::Token& advance();
     const Lexer::Token& consume(const std::string& type, const std::string& message);
-    [[noreturn]] void error(const std::string &msg) const;
+
+    bool match(const std::initializer_list<std::string> &types);
+    bool match_next(const std::initializer_list<std::string> &types);
 
     std::unique_ptr<Node> statement();
+    std::unique_ptr<Node> variable_declaration();
+    std::unique_ptr<Node> variable_assignment();
+    std::unique_ptr<Node> scope_declaration();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> while_loop_statement();
-    std::unique_ptr<Node> scope_declaration();
-    std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> function_call();
     std::unique_ptr<Node> expression();
     std::unique_ptr<Node> equality();
@@ -196,4 +210,6 @@ private:
     std::unique_ptr<Node> remainder();
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
+
+    [[noreturn]] void error(const std::string &msg) const;
 };

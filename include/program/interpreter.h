@@ -34,9 +34,13 @@ private:
     std::unordered_map<std::string, std::vector<std::unique_ptr<Parser::Node>>> functions;
 
     Value evaluate_node(const Parser::Node *node);
+    Value evaluate_unary_operation(const Parser::UnaryOperation *expr);
     Value evaluate_binary_operation(const Parser::BinaryOperation *expr);
+
     bool custom_compare(const Value &left, const Value &right);
 
     Value perform_comparison_operation(const Value &left, const Value &right, const std::string &op);
     Value perform_arithmetic_operation(const Value &left, const Value &right, const std::string &op);
+
+    float modulo(const float &a, const float &b);
 };
