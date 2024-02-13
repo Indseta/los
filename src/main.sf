@@ -1,6 +1,5 @@
-let x = 32;
-let y = 16.24;
-let z = true;
-if (false) {
-    println("Hello world");
+function abc(x, y, z) {
+    println(x);
+    println(y);
+    println(z);
 }

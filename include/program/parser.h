@@ -75,7 +75,7 @@ public:
             std::cout << "StringLiteral: '" << value << "'";
         }
         std::string value;
-    };
+    };  
 
     struct VariableDeclaration : public Node {
         VariableDeclaration(const std::string &op, const std::string &identifier, std::unique_ptr<Node> expr) : op(std::move(op)), identifier(std::move(identifier)), expr(std::move(expr)) {}
@@ -87,6 +87,26 @@ public:
         std::string op;
         std::string identifier;
         std::unique_ptr<Node> expr;
+    };
+
+    struct FunctionDeclaration : public Node {
+        FunctionDeclaration() {}
+        void log() const override {
+            std::cout << "FunctionDeclaration: (identifier: '" << identifier << "', args: (";
+            for (size_t i = 0; i < params.size(); ++i) {
+                const bool last = i == params.size() - 1;
+                std::cout << params[i];
+                if (!last) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << "), statement: (";
+            statement->log();
+            std::cout << "))";
+        }
+        std::string identifier;
+        std::vector<std::string> params;
+        std::unique_ptr<Node> statement;
     };
 
     struct VariableCall : public Node {
@@ -163,6 +183,7 @@ private:
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
+    std::unique_ptr<Node> function_declaration();
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> function_call();
     std::unique_ptr<Node> expression();

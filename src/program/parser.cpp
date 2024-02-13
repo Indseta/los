@@ -55,6 +55,7 @@ void Parser::error(const std::string &msg) const {
 
 std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"let", "var", "const"})) return variable_declaration();
+    if (match({"function"})) return function_declaration();
     if (match({"if", "else"})) return conditional_statement();
     if (match({"{"})) return scope_declaration();
     if (peek().category == Lexer::TokenCategory::IDENTIFIER && next().value == "(") return function_call();
@@ -94,6 +95,25 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration() {
     auto value = expression();
     consume(";", "Expected ';' after statement");
     return std::make_unique<VariableDeclaration>(op, identifier, std::move(value));
+}
+
+std::unique_ptr<Parser::Node> Parser::function_declaration() {
+    auto function = std::make_unique<FunctionDeclaration>();
+    if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
+        function->identifier = advance().value;
+    } else {
+        error("Expected identifier");
+    }
+    consume("(", "Expected '('");
+    while (peek().value != ")") {
+        function->params.push_back(advance().value);
+        if (peek().value != ")") {
+            consume(",", "Expected ','");
+        }
+    }
+    consume(")", "Expected ')' after statement");
+    function->statement = std::move(statement());
+    return function;
 }
 
 std::unique_ptr<Parser::Node> Parser::function_call() {
