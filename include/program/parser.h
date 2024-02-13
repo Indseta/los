@@ -110,7 +110,7 @@ public:
     };
 
     struct FunctionDeclaration : public Node {
-        FunctionDeclaration() {}
+        FunctionDeclaration() : statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
             std::cout << "FunctionDeclaration: (identifier: '" << identifier << "', args: (";
             for (size_t i = 0; i < params.size(); ++i) {
@@ -221,8 +221,6 @@ private:
     std::unique_ptr<Node> function_declaration();
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> variable_assignment();
-    std::unique_ptr<Node> scope_declaration();
-    std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> while_loop_statement();
     std::unique_ptr<Node> function_call();
     std::unique_ptr<Node> expression();

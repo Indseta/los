@@ -12,16 +12,23 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Parser::Node>> &as
 
 void Interpreter::interpret_node(const Parser::Node *expr) {
     if (const auto *node = dynamic_cast<const Parser::VariableDeclaration*>(expr)) {
-        Value val = evaluate_node(node->expr.get());
         auto it = heap.find(node->identifier);
         if (it == heap.end()) {
+            Value val = evaluate_node(node->expr.get());
             heap[node->identifier] = val;
         } else {
             throw std::runtime_error("Variable already defined: " + node->identifier);
         }
     } else if (const auto *node = dynamic_cast<const Parser::VariableAssignment*>(expr)) {
-        Value val = evaluate_node(node->expr.get());
-        heap[node->identifier] = val;
+        auto it = heap.find(node->identifier);
+        if (it != heap.end()) {
+            Value val = evaluate_node(node->expr.get());
+            heap[node->identifier] = val;
+        } else {
+            throw std::runtime_error("Variable not defined: " + node->identifier);
+        }
+    } else if (const auto *node = dynamic_cast<const Parser::FunctionDeclaration*>(expr)) {
+        std::cout << "Not implemented: Function declaration" << '\n';
     } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
         for (const auto &n : node->ast) {
             interpret_node(n.get());
@@ -45,6 +52,8 @@ void Interpreter::interpret_node(const Parser::Node *expr) {
                     std::cout << a << '\n';
                 }, val);
             }
+        } else {
+            throw std::runtime_error("Function not defined: " + node->identifier);
         }
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {

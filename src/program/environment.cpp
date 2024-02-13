@@ -10,10 +10,10 @@ void Environment::run(const std::string &fp) {
     // }
 
     Parser parser(lexer);
-    for (const auto &n : parser.get()) {
-        n->log();
-        std::cout << '\n';
-    }
+    // for (const auto &n : parser.get()) {
+    //     n->log();
+    //     std::cout << '\n';
+    // }
 
     Interpreter interpreter(parser);
 }

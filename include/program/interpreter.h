@@ -24,6 +24,12 @@ public:
         }
     };
 
+    struct Function {
+        Function(std::vector<std::string> params, std::unique_ptr<Parser::Node> statement) : params(std::move(params)), statement(std::move(statement)) {}
+        std::vector<std::string> params;
+        std::unique_ptr<Parser::Node> statement;
+    };
+
     Interpreter(const Parser &parser);
 
     void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
@@ -31,7 +37,7 @@ public:
 
 private:
     std::unordered_map<std::string, Value> heap;
-    std::unordered_map<std::string, std::vector<std::unique_ptr<Parser::Node>>> functions;
+    std::unordered_map<std::string, Function> functions;
 
     Value evaluate_node(const Parser::Node *node);
     Value evaluate_unary_operation(const Parser::UnaryOperation *expr);

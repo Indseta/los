@@ -1,5 +1,7 @@
-function abc(x, y, z) {
-    println(x);
-    println(y);
-    println(z);
+let x = 0;
+while (x < 100) {
+    if (x % 10 == 0) {
+        println(x);
+    }
+    x += 1;
 }

@@ -102,7 +102,7 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
     }
     consume("(", "Expected '('");
     while (peek().value != ")") {
-        function->params.push_back(advance().value);
+        function->params.push_back(advance().value); // Check if keyword
         if (peek().value != ")") {
             consume(",", "Expected ','");
         }
