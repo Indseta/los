@@ -15,6 +15,7 @@ public:
     };
 
     struct BinaryOperation : public Node {
+        BinaryOperation() {}
         BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
         void log() const override {
             std::cout << "BinaryOperation: (left: (";
@@ -89,6 +90,25 @@ public:
         std::unique_ptr<Node> expr;
     };
 
+    struct VariableAssignment : public Node {
+        VariableAssignment(const std::string &identifier, std::unique_ptr<Node> expr) : identifier(std::move(identifier)), expr(std::move(expr)) {}
+        void log() const override {
+            std::cout << "VariableAssignment: (identifier: '" << identifier << "', expr: (";
+            expr->log();
+            std::cout << "))";
+        }
+        std::string identifier;
+        std::unique_ptr<Node> expr;
+    };
+
+    struct VariableCall : public Node {
+        VariableCall(const std::string &identifier) : identifier(std::move(identifier)) {}
+        void log() const override {
+            std::cout << "VariableCall: '" << identifier << "'";
+        }
+        std::string identifier;
+    };
+
     struct FunctionDeclaration : public Node {
         FunctionDeclaration() {}
         void log() const override {
@@ -109,14 +129,6 @@ public:
         std::unique_ptr<Node> statement;
     };
 
-    struct VariableCall : public Node {
-        VariableCall(const std::string &identifier) : identifier(std::move(identifier)) {}
-        void log() const override {
-            std::cout << "VariableCall: '" << identifier << "'";
-        }
-        std::string identifier;
-    };
-
     struct FunctionCall : public Node {
         FunctionCall(const std::string &identifier) : identifier(std::move(identifier)) {}
         void log() const override {
@@ -135,17 +147,19 @@ public:
     };
 
     struct ConditionalStatement : public Node {
-        ConditionalStatement() {}
+        ConditionalStatement() : pass_statement(std::make_unique<EmptyStatement>()), fail_statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
-            std::cout << "ConditionalStatement: (op: '" << op << "', condition: (";
+            std::cout << "ConditionalStatement: (condition: (";
             condition->log();
-            std::cout << "), statement: (";
-            statement->log();
+            std::cout << "), pass_statement: (";
+            pass_statement->log();
+            std::cout << "), fail_statement: (";
+            fail_statement->log();
             std::cout << "))";
         }
-        std::string op;
         std::unique_ptr<Node> condition;
-        std::unique_ptr<Node> statement;
+        std::unique_ptr<Node> pass_statement;
+        std::unique_ptr<Node> fail_statement;
     };
 
     struct ScopeDeclaration : public Node {
@@ -162,6 +176,26 @@ public:
         std::vector<std::unique_ptr<Node>> ast;
     };
 
+    struct EmptyStatement : public Node {
+        EmptyStatement() {}
+        void log() const override {
+            std::cout << "EmptyStatement";
+        }
+    };
+
+    struct WhileLoopStatement : public Node {
+        WhileLoopStatement() : statement(std::make_unique<EmptyStatement>()) {}
+        void log() const override {
+            std::cout << "WhileLoopStatement: (condition: (";
+            condition->log();
+            std::cout << "), statement: (";
+            statement->log();
+            std::cout << "))";
+        }
+        std::unique_ptr<Node> condition;
+        std::unique_ptr<Node> statement;
+    };
+
     Parser(const Lexer &lexer);
     const std::vector<std::unique_ptr<Node>>& get() const;
 
@@ -173,25 +207,32 @@ private:
     void parse();
     bool at_end() const;
     const Lexer::Token& peek() const;
-    const Lexer::Token& next() const;
     const Lexer::Token& previous() const;
-    bool match(std::initializer_list<std::string> types);
+    const Lexer::Token& next() const;
     const Lexer::Token& advance();
     const Lexer::Token& consume(const std::string& type, const std::string& message);
-    [[noreturn]] void error(const std::string &msg) const;
+
+    bool match(const std::initializer_list<std::string> &types);
+    bool match_next(const std::initializer_list<std::string> &types);
 
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
     std::unique_ptr<Node> function_declaration();
     std::unique_ptr<Node> variable_declaration();
+    std::unique_ptr<Node> variable_assignment();
+    std::unique_ptr<Node> scope_declaration();
+    std::unique_ptr<Node> conditional_statement();
+    std::unique_ptr<Node> while_loop_statement();
     std::unique_ptr<Node> function_call();
     std::unique_ptr<Node> expression();
     std::unique_ptr<Node> equality();
     std::unique_ptr<Node> comparison();
     std::unique_ptr<Node> term();
     std::unique_ptr<Node> factor();
+    std::unique_ptr<Node> remainder();
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
-    const bool stob(const std::string &value) const;
+
+    [[noreturn]] void error(const std::string &msg) const;
 };

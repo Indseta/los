@@ -18,14 +18,21 @@ const std::vector<std::string> Lexer::keywords = {
 
 const std::vector<std::string> Lexer::operators = {
     "=",
+    "!",
     "+",
     "-",
     "*",
     "/",
+    "%",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
     "==",
     "!=",
-    ">",
-    ">=",
+    "<",
+    "<=",
     ">",
     ">=",
 };

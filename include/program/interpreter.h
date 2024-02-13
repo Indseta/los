@@ -1,75 +1,46 @@
 #pragma once
 
-#include <program/parser.h>
-
-#include <program/parser.h>
-#include <unordered_map>
-#include <stdexcept>
+#include <memory>
 #include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <cmath>
+#include <variant>
+#include <stdexcept>
+#include <program/parser.h>
 
 class Interpreter {
 public:
-    struct Type {
-        virtual ~Type() = default;
-        virtual std::unique_ptr<Type> clone() const = 0;
-        virtual void log() const {}
-    };
+    using Value = std::variant<int, float, bool, std::string>;
 
-    struct Int : public Type {
-        Int(const int &value) : value(value) {}
-        Int() : value(0) {}
-        std::unique_ptr<Type> clone() const override {
-            return std::make_unique<Int>(*this);
-        }
-        void log() const override {
-            std::cout << value << '\n';
-        }
-        int value;
-    };
+    struct Variable {
+        Value value;
 
-    struct Float : public Type {
-        Float(const float &value) : value(value) {}
-        Float() : value(0) {}
-        std::unique_ptr<Type> clone() const override {
-            return std::make_unique<Float>(*this);
+        void log() const {
+            std::visit([](auto&& arg) {
+                std::cout << arg << '\n';
+            }, value);
         }
-        void log() const override {
-            std::cout << value << '\n';
-        }
-        float value;
-    };
-
-    struct Bool : public Type {
-        Bool(const bool &value) : value(value) {}
-        Bool() : value(false) {}
-        std::unique_ptr<Type> clone() const override {
-            return std::make_unique<Bool>(*this);
-        }
-        void log() const override {
-            std::cout << value << '\n';
-        }
-        bool value;
-    };
-
-    struct String : public Type {
-        String(const std::string &value) : value(value) {}
-        String() : value("") {}
-        std::unique_ptr<Type> clone() const override {
-            return std::make_unique<String>(*this);
-        }
-        void log() const override {
-            std::cout << value << '\n';
-        }
-        std::string value;
     };
 
     Interpreter(const Parser &parser);
+
     void interpret(const std::vector<std::unique_ptr<Parser::Node>> &ast);
+    void interpret_node(const Parser::Node *expr);
 
 private:
-    void interpret_node(const Parser::Node *expr);
-    std::unique_ptr<Type> evaluate_node(const Parser::Node *node);
-
-    std::unordered_map<std::string, std::unique_ptr<Type>> heap;
+    std::unordered_map<std::string, Value> heap;
     std::unordered_map<std::string, std::vector<std::unique_ptr<Parser::Node>>> functions;
+
+    Value evaluate_node(const Parser::Node *node);
+    Value evaluate_unary_operation(const Parser::UnaryOperation *expr);
+    Value evaluate_binary_operation(const Parser::BinaryOperation *expr);
+
+    bool custom_compare(const Value &left, const Value &right);
+
+    Value perform_comparison_operation(const Value &left, const Value &right, const std::string &op);
+    Value perform_arithmetic_operation(const Value &left, const Value &right, const std::string &op);
+
+    float modulo(const float &a, const float &b);
 };

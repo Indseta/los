@@ -20,12 +20,16 @@ const Lexer::Token& Parser::peek() const {
     return tokens[current];
 }
 
-const Lexer::Token& Parser::next() const {
-    return at_end() ? tokens[current] : tokens[current + 1];
-}
-
 const Lexer::Token& Parser::previous() const {
     return tokens[current - 1];
+}
+
+const Lexer::Token& Parser::next() const {
+    if (!at_end()) {
+        return tokens[current + 1];
+    } else {
+        return peek();
+    }
 }
 
 const Lexer::Token& Parser::advance() {
@@ -33,10 +37,19 @@ const Lexer::Token& Parser::advance() {
     return previous();
 }
 
-bool Parser::match(std::initializer_list<std::string> types) {
+bool Parser::match(const std::initializer_list<std::string> &types) {
     for (const std::string &type : types) {
-        if (peek().value == type && !at_end()) {
-            current++;
+        if (peek().value == type) {
+            advance();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Parser::match_next(const std::initializer_list<std::string> &types) {
+    for (const std::string &type : types) {
+        if (next().value == type) {
             return true;
         }
     }
@@ -57,30 +70,13 @@ std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"let", "var", "const"})) return variable_declaration();
     if (match({"function"})) return function_declaration();
     if (match({"if", "else"})) return conditional_statement();
+    if (match({"while"})) return while_loop_statement();
     if (match({"{"})) return scope_declaration();
-    if (peek().category == Lexer::TokenCategory::IDENTIFIER && next().value == "(") return function_call();
+    if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
+        if (match_next({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment();
+        if (match_next({"("})) return function_call();
+    }
     return expression();
-}
-
-std::unique_ptr<Parser::Node> Parser::conditional_statement() {
-    auto conditional = std::make_unique<ConditionalStatement>();
-    conditional->op = previous().value;
-    if (conditional->op == "if") {
-        consume("(", "Expected '(");
-        conditional->condition = std::move(expression());
-        consume(")", "Expected ')");
-    }
-    conditional->statement = std::move(statement());
-    return conditional;
-}
-
-std::unique_ptr<Parser::Node> Parser::scope_declaration() {
-    auto scope = std::make_unique<ScopeDeclaration>();
-    while (peek().value != "}") {
-        scope->ast.push_back(std::move(statement()));
-    }
-    advance();
-    return scope;
 }
 
 std::unique_ptr<Parser::Node> Parser::variable_declaration() {
@@ -114,6 +110,70 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
     consume(")", "Expected ')' after statement");
     function->statement = std::move(statement());
     return function;
+}
+
+std::unique_ptr<Parser::Node> Parser::variable_assignment() {
+    std::string identifier = advance().value;
+    std::string op;
+    if (peek().category == Lexer::TokenCategory::OPERATOR) {
+        op = advance().value;
+    } else {
+        error("Expected operator");
+    }
+    auto value = expression();
+    consume(";", "Expected ';' after statement");
+
+    if (op == "=") {
+        return std::make_unique<VariableAssignment>(identifier, std::move(value));
+    } else {
+        auto expr = std::make_unique<BinaryOperation>();
+        expr->left = std::make_unique<VariableCall>(identifier);
+        if (op == "+=") {
+            expr->op = "+";
+        } else if (op == "-=") {
+            expr->op = "-";
+        } else if (op == "*=") {
+            expr->op = "*";
+        } else if (op == "/=") {
+            expr->op = "/";
+        } else if (op == "%=") {
+            expr->op = "%";
+        }
+        expr->right = std::move(value);
+
+        return std::make_unique<VariableAssignment>(identifier, std::move(expr));
+    }
+}
+
+std::unique_ptr<Parser::Node> Parser::scope_declaration() {
+    auto scope = std::make_unique<ScopeDeclaration>();
+    while (peek().value != "}") {
+        scope->ast.push_back(std::move(statement()));
+    }
+    advance(); // TODO: consume
+    return scope;
+}
+
+std::unique_ptr<Parser::Node> Parser::conditional_statement() {
+    auto conditional = std::make_unique<ConditionalStatement>();
+    consume("(", "Expected '('");
+    conditional->condition = std::move(expression());
+    consume(")", "Expected ')'");
+    conditional->pass_statement = std::move(statement());
+    if (peek().value == "else") {
+        advance();
+        conditional->fail_statement = std::move(statement());
+    }
+    return conditional;
+}
+
+std::unique_ptr<Parser::Node> Parser::while_loop_statement() {
+    auto loop_statement = std::make_unique<WhileLoopStatement>();
+    consume("(", "Expected '('");
+    loop_statement->condition = std::move(expression());
+    consume(")", "Expected ')'");
+    loop_statement->statement = std::move(statement());
+    return loop_statement;
 }
 
 std::unique_ptr<Parser::Node> Parser::function_call() {
@@ -171,9 +231,21 @@ std::unique_ptr<Parser::Node> Parser::term() {
 }
 
 std::unique_ptr<Parser::Node> Parser::factor() {
-    auto left = unary();
+    auto left = remainder();
 
     while (match({"*", "/"})) {
+        std::string op = previous().value;
+        auto right = remainder();
+        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Parser::Node> Parser::remainder() {
+    auto left = unary();
+
+    while (match({"%"})) {
         std::string op = previous().value;
         auto right = unary();
         left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
@@ -208,18 +280,7 @@ std::unique_ptr<Parser::Node> Parser::primary() {
         consume(")", "Expected ')' after expression");
         return expr;
     }
-
     error("Unexpected token '" + peek().value + "'");
-}
-
-const bool Parser::stob(const std::string &value) const {
-    if (value == "true") {
-        return true;
-    } else if (value == "false") {
-        return false;
-    } else {
-        throw std::runtime_error("Unexpected value: " + value);
-    }
 }
 
 const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {
