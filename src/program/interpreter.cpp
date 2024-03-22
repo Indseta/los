@@ -81,17 +81,17 @@ Interpreter::Value Interpreter::evaluate_node(const Parser::Node *node) {
 
 Interpreter::Value Interpreter::evaluate_function_call(const Parser::FunctionCall *expr) {
     if (expr->identifier == "println") {
-        if (expr->args.size() == 1) {
-            const auto &a = expr->args[0];
+        for (const auto &a : expr->args) {
             Value val = evaluate_node(a.get());
             std::visit([](auto &&a) {
-                std::cout << a << '\n';
+                std::cout << a;
             }, val);
-            return 0;
         }
+        std::cout << '\n';
+        return 0;
     }
 
-    throw std::runtime_error("Function " + expr->identifier + " with " + std::to_string(expr->args.size()) + " args not defined");
+    throw std::runtime_error("Function signature: \"" + expr->identifier + "\" with " + std::to_string(expr->args.size()) + " args not defined");
 }
 
 Interpreter::Value Interpreter::evaluate_unary_operation(const Parser::UnaryOperation *expr) {

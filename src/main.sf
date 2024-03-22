@@ -1,5 +1,5 @@
 let i = 0;
-while (i < 10000) {
-    println(i);
+while (i < 1440) {
+    println("i = ", i);
     i += 1;
 }
