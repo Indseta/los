@@ -274,7 +274,14 @@ std::unique_ptr<Parser::Node> Parser::primary() {
     } else if (peek().category == Lexer::TokenCategory::STRING_LITERAL) {
         return std::make_unique<StringLiteral>(advance().value);
     } else if (peek().category == Lexer::TokenCategory::IDENTIFIER) {
-        return std::make_unique<VariableCall>(advance().value);
+        if (next().value == "(") {
+            auto res = std::make_unique<FunctionCall>(advance().value);
+            consume("(", "Expected '('");
+            consume(")", "Expected ')'");
+            return res;
+        } else {
+            return std::make_unique<VariableCall>(advance().value);
+        }
     } else if (match({"("})) {
         auto expr = expression();
         consume(")", "Expected ')' after expression");

@@ -2,7 +2,7 @@
 use vector; // vector, range
 
 
-function void log_vector(vector<i32> &target) {
+void log_vector(vector<i32> &target) {
 	i32 product = 1;
     for (i in target) {
         product *= i;

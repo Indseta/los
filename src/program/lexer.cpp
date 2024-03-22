@@ -135,7 +135,9 @@ void Lexer::lex(const std::string &raw) {
         }
 
         // Unkown token
-        tokens.push_back(ct);
+        std::string msg = "Unkown token: ";
+        msg += ct.value;
+        throw std::runtime_error(msg);
     }
 }
 

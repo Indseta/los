@@ -45,16 +45,7 @@ void Interpreter::interpret_node(const Parser::Node *expr) {
             interpret_node(node->statement.get());
         }
     } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
-        if (node->identifier == "println") {
-            for (const auto &a : node->args) {
-                Value val = evaluate_node(a.get());
-                std::visit([](auto &&a) {
-                    std::cout << a << '\n';
-                }, val);
-            }
-        } else {
-            throw std::runtime_error("Function not defined: " + node->identifier);
-        }
+        evaluate_function_call(node);
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
         throw std::runtime_error("Unsupported node type encountered");
@@ -77,6 +68,8 @@ Interpreter::Value Interpreter::evaluate_node(const Parser::Node *node) {
         } else {
             throw std::runtime_error("Variable not defined: " + n->identifier);
         }
+    } else if (const auto *n = dynamic_cast<const Parser::FunctionCall*>(node)) {
+        return evaluate_function_call(n);
     } else if (const auto *n = dynamic_cast<const Parser::UnaryOperation*>(node)) {
         return evaluate_unary_operation(n);
     } else if (const auto *n = dynamic_cast<const Parser::BinaryOperation*>(node)) {
@@ -84,6 +77,21 @@ Interpreter::Value Interpreter::evaluate_node(const Parser::Node *node) {
     }
 
     throw std::runtime_error("Unsupported node encountered in evaluation");
+}
+
+Interpreter::Value Interpreter::evaluate_function_call(const Parser::FunctionCall *expr) {
+    if (expr->identifier == "println") {
+        if (expr->args.size() == 1) {
+            const auto &a = expr->args[0];
+            Value val = evaluate_node(a.get());
+            std::visit([](auto &&a) {
+                std::cout << a << '\n';
+            }, val);
+            return 0;
+        }
+    }
+
+    throw std::runtime_error("Function " + expr->identifier + " with " + std::to_string(expr->args.size()) + " args not defined");
 }
 
 Interpreter::Value Interpreter::evaluate_unary_operation(const Parser::UnaryOperation *expr) {
@@ -119,34 +127,6 @@ Interpreter::Value Interpreter::evaluate_binary_operation(const Parser::BinaryOp
     } else {
         return perform_arithmetic_operation(left, right, op);
     }
-}
-
-bool Interpreter::custom_compare(const Interpreter::Value &left, const Interpreter::Value &right) {
-    if (std::holds_alternative<std::string>(left) || std::holds_alternative<std::string>(right)) {
-    }
-
-    if (std::holds_alternative<bool>(left) || std::holds_alternative<bool>(right)) {
-        auto bool_to_numeric = [](bool b) -> float { return b ? 1.0f : 0.0f; };
-
-        float leftVal = std::holds_alternative<bool>(left) ? bool_to_numeric(std::get<bool>(left)) : 
-                        std::holds_alternative<int>(left) ? static_cast<float>(std::get<int>(left)) : 
-                        std::get<float>(left);
-
-        float rightVal = std::holds_alternative<bool>(right) ? bool_to_numeric(std::get<bool>(right)) : 
-                         std::holds_alternative<int>(right) ? static_cast<float>(std::get<int>(right)) : 
-                         std::get<float>(right);
-
-        return leftVal == rightVal;
-    }
-
-    if (std::holds_alternative<int>(left) && std::holds_alternative<float>(right)) {
-        return static_cast<float>(std::get<int>(left)) == std::get<float>(right);
-    }
-    if (std::holds_alternative<float>(left) && std::holds_alternative<int>(right)) {
-        return std::get<float>(left) == static_cast<float>(std::get<int>(right));
-    }
-
-    throw std::runtime_error("Unsupported types for comparison.");
 }
 
 Interpreter::Value Interpreter::perform_comparison_operation(const Interpreter::Value &left, const Interpreter::Value &right, const std::string &op) {
