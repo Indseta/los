@@ -1,33 +1,8 @@
-// @echo off 
-
-// if "%~1" == "" (
-//     echo Input file not defined
-//     exit /b 1
-// )
-
-// REM assemble source
-// nasm -f win64 -g -o %1.o %1.asm
-// if %errorlevel% neq 0 (
-//     echo Assembly failed
-//     exit /b %errorlevel%
-// )
-
-// REM link executable
-// gcc -m64 -g %1.o -o %1.exe
-// if %errorlevel% neq 0 (
-//     echo Linking failed
-//     exit /b %errorlevel%
-// )
-
-// REM clean up
-// del %1.o
-// call %1.exe
-
 #include <program/compiler.h>
 
 Compiler::Compiler(const Parser &parser, const std::string &fp) {
     std::string sfn = fp;
-    std::string ext = ".sf";
+    std::string ext = ".los";
 
     size_t pos = sfn.find(ext);
     if (pos != std::string::npos) {

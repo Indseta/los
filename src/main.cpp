@@ -59,28 +59,30 @@ int main(int argc, char *argv[]) {
 
     if (argc < 2) {
         std::cout << "Missing required arguments" << '\n';
-        std::cout << "Run 'ast -help' for a list of commands" << '\n';
+        std::cout << "Run 'los -help' for a list of commands" << '\n';
         return EXIT_FAILURE;
     }
 
-    const nlohmann::json properties = read_json("src/resources/ast.json");
-    const std::string version = properties["ast"]["version"].get<std::string>();
+    const nlohmann::json properties = read_json("src/resources/los.json");
+    const std::string version = properties["los"]["version"].get<std::string>();
 
     if (strcmp(argv[1], "-help") == 0 || strcmp(argv[1], "-h") == 0) {
-        std::cout << "usage: 'ast [option] ...'" << '\n';
+        std::cout << "usage: 'los [option] ...'" << '\n';
         std::cout << "options:" << '\n';
-        std::cout << "\t<path_to_file.sf> : run program" << '\n';
+        std::cout << "\t<path_to_file> : run program" << '\n';
         std::cout << "\t-v or -version : show version" << '\n';
         std::cout << "\t-h or -help : show help information" << '\n';
     } else if (strcmp(argv[1], "-version") == 0 || strcmp(argv[1], "-v") == 0) {
-        std::cout << "ast v" << version << '\n';
+        std::cout << "los v" << version << '\n';
     } else {
         // Start program
         auto start = std::chrono::high_resolution_clock::now();
 
         Environment environment;
         try {
-            environment.run(argv[1]);
+            std::string fp = argv[1];
+            fp += ".los";
+            environment.run(fp);
         } catch (const std::exception &e) {
             std::cerr << e.what() << '\n';
             return EXIT_FAILURE;
