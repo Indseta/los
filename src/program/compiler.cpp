@@ -29,8 +29,8 @@ Compiler::Compiler(const Parser &parser, const std::string &fp) {
         return;
     }
 
-    // run_cmd("del " + sfn + ".o");
-    // run_cmd("del " + sfn + ".asm");
+    run_cmd("del " + sfn + ".o");
+    run_cmd("del " + sfn + ".asm");
     run_cmd("call " + sfn + ".exe");
 }
 
