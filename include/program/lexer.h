@@ -41,6 +41,8 @@ public:
 
     const std::vector<Token>& get() const;
 
+    const bool& get_success() const;
+
 private:
     void lex(const std::string &raw);
     const bool is_keyword(const std::string &value) const;
@@ -48,4 +50,6 @@ private:
     const bool is_punctuator(const std::string &value) const;
 
     std::vector<Token> tokens;
+
+    bool success;
 };

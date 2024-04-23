@@ -50,6 +50,8 @@ const std::vector<std::string> Lexer::punctuators = {
 };
 
 Lexer::Lexer(const Source &source) {
+    success = true;
+
     lex(source.get());
 }
 
@@ -137,6 +139,7 @@ void Lexer::lex(const std::string &raw) {
         // Unkown token
         std::string msg = "Unkown token: ";
         msg += ct.value;
+        success = false;
         throw std::runtime_error(msg);
     }
 }
@@ -170,6 +173,10 @@ const bool Lexer::is_punctuator(const std::string &value) const {
 
 const std::vector<Lexer::Token>& Lexer::get() const {
     return tokens;
+}
+
+const bool& Lexer::get_success() const {
+    return success;
 }
 
 void Lexer::Token::log() const {

@@ -1,6 +1,8 @@
 #include <program/parser.h>
 
 Parser::Parser(const Lexer &lexer) : tokens(lexer.get()) {
+    success = true;
+
     parse();
 }
 
@@ -62,7 +64,8 @@ const Lexer::Token& Parser::consume(const std::string& type, const std::string& 
     error(message);
 }
 
-void Parser::error(const std::string &msg) const {
+void Parser::error(const std::string &msg) {
+    success = false;
     throw std::runtime_error(msg);
 }
 
@@ -292,4 +295,8 @@ std::unique_ptr<Parser::Node> Parser::primary() {
 
 const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {
     return ast;
+}
+
+const bool& Parser::get_success() const {
+    return success;
 }

@@ -29,8 +29,8 @@ Compiler::Compiler(const Parser &parser, const std::string &fp) {
         return;
     }
 
-    run_cmd("del " + sfn + ".o");
-    run_cmd("del " + sfn + ".asm");
+    // run_cmd("del " + sfn + ".o");
+    // run_cmd("del " + sfn + ".asm");
     run_cmd("call " + sfn + ".exe");
 }
 
@@ -89,6 +89,10 @@ void Compiler::evaluate_statement(const Parser::Node *expr) {
 
 void Compiler::evaluate_expr(const Parser::Node *node, size_t &ix) {
     if (const auto *child_node = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
+        std::string hash = "msg" + get_hash(8);
+        segment_data.push_back(hash + " db \"%d\", 0xd, 0xa, 0");
+        entry_main.insert(entry_main.begin() + ix, "lea rcx, [" + hash + "]");
+        entry_main.insert(entry_main.begin() + ix, "mov edx, " + std::to_string(child_node->value));
     } else if (const auto *child_node = dynamic_cast<const Parser::FloatLiteral*>(node)) {
     } else if (const auto *child_node = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
     } else if (const auto *child_node = dynamic_cast<const Parser::StringLiteral*>(node)) {

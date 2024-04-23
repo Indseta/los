@@ -199,6 +199,8 @@ public:
     Parser(const Lexer &lexer);
     const std::vector<std::unique_ptr<Node>>& get() const;
 
+    const bool& get_success() const;
+
 private:
     std::vector<std::unique_ptr<Node>> ast;
     const std::vector<Lexer::Token> &tokens;
@@ -232,5 +234,7 @@ private:
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
 
-    [[noreturn]] void error(const std::string &msg) const;
+    bool success;
+
+    [[noreturn]] void error(const std::string &msg);
 };
