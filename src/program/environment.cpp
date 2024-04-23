@@ -15,5 +15,7 @@ void Environment::run(const std::string &fp) {
     //     std::cout << '\n';
     // }
 
-    Interpreter interpreter(parser);
+    // Interpreter interpreter(parser);
+
+    Compiler compiler(parser, fp);
 }

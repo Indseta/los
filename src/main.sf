@@ -1,5 +1,1 @@
-let i = 0;
-while (i < 1440) {
-    println("i = ", i);
-    i += 1;
-}
+println("Hello world");

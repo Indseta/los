@@ -2,12 +2,13 @@
 
 #define NDEBUG
 
-#include <program/interpreter.h>
+#include <iostream>
+
+#include <program/source.h>
 #include <program/lexer.h>
 #include <program/parser.h>
-#include <program/source.h>
-
-#include <iostream>
+#include <program/interpreter.h>
+#include <program/compiler.h>
 
 class Environment {
 public:

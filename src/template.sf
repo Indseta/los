@@ -2,7 +2,7 @@
 use vector; // vector, range
 
 
-void log_vector(vector<i32> &target) {
+void log_vector(ref<vector<i32>> target) {
 	i32 product = 1;
     for (i in target) {
         product *= i;
@@ -43,4 +43,8 @@ void main() {
 
     string greet = "world";
     System.println(f"Hello ${greet}");
+
+    ptr<string> ptr_greet = new "world";
+    System.println(f"Hello ${greet}");
+    delete ptr_greet;
 }
