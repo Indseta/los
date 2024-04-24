@@ -7,7 +7,7 @@
 #include <program/source.h>
 #include <program/lexer.h>
 #include <program/parser.h>
-#include <program/interpreter.h>
+#include <program/ir_generator.h>
 #include <program/compiler.h>
 
 class Environment {

@@ -1,4 +1,4 @@
-# Interpreter
+# Los compiler
 
 ## Requirements
 ### C++ compiler

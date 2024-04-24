@@ -30,7 +30,7 @@ void Environment::run(const std::string &fp) {
         return;
     }
 
-    // Interpreter interpreter(parser);
+    IRGenerator ir_generator(parser);
 
     Compiler compiler(parser, fp);
 }
