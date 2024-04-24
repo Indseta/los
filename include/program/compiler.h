@@ -42,6 +42,7 @@ public:
 private:
     void compile(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
+    void evaluate_global_statement(const Parser::Node *expr);
     void evaluate_statement(const Parser::Node *expr);
     void evaluate_expr(const Parser::Node *expr);
     void evaluate_function_call(const Parser::FunctionCall *expr);

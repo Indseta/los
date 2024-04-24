@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iostream>
+#include <random>
+#include <vector>
 
 #include <program/parser.h>
 

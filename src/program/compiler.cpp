@@ -74,7 +74,7 @@ Compiler::~Compiler() {
 
 void Compiler::compile(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
     for (const auto &t : ast) {
-        evaluate_statement(t.get());
+        evaluate_global_statement(t.get());
     }
 
     file_stream << "bits 64" << '\n';
@@ -109,10 +109,24 @@ void Compiler::compile(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
     file_stream << '\t' << "call ExitProcess" << '\n';
 }
 
+void Compiler::evaluate_global_statement(const Parser::Node *expr) {
+    if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
+        evaluate_statement(node->statement.get());
+    } else {
+        throw std::runtime_error("Unsupported global statement encountered.");
+    }
+}
+
 void Compiler::evaluate_statement(const Parser::Node *expr) {
     ix = entry_main.size();
     Registries::areg = &Registries::rax;
-    if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+    if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
+        evaluate_statement(node->statement.get());
+    } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
+        for (const auto &t : node->ast) {
+            evaluate_statement(t.get());
+        }
+    } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
         evaluate_function_call(node);
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {

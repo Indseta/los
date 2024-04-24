@@ -1,2 +1,4 @@
-println("Hello world");
-println(2763);
+void main() {
+    println("Hello world");
+    println(2763);
+}

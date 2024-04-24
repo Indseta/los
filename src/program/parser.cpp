@@ -71,6 +71,7 @@ void Parser::error(const std::string &msg) {
 
 std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"let", "var", "const"})) return variable_declaration();
+    if (match({"void"})) return entry_declaration();
     if (match({"function"})) return function_declaration();
     if (match({"if", "else"})) return conditional_statement();
     if (match({"while"})) return while_loop_statement();
@@ -80,6 +81,15 @@ std::unique_ptr<Parser::Node> Parser::statement() {
         if (match_next({"("})) return function_call();
     }
     return expression();
+}
+
+std::unique_ptr<Parser::Node> Parser::entry_declaration() {
+    auto entry = std::make_unique<Entry>();
+    advance();
+    consume("(", "Expected '('");
+    consume(")", "Expected ')' after statement");
+    entry->statement = std::move(statement());
+    return entry;
 }
 
 std::unique_ptr<Parser::Node> Parser::variable_declaration() {

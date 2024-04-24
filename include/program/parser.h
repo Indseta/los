@@ -124,6 +124,7 @@ public:
             statement->log();
             std::cout << "))";
         }
+        std::string type;
         std::string identifier;
         std::vector<std::string> params;
         std::unique_ptr<Node> statement;
@@ -144,6 +145,16 @@ public:
         }
         std::string identifier;
         std::vector<std::unique_ptr<Node>> args;
+    };
+
+    struct Entry : public Node {
+        Entry() : statement(std::make_unique<EmptyStatement>()) {}
+        void log() const override {
+            std::cout << "Entry: (statement: (";
+            statement->log();
+            std::cout << "))";
+        }
+        std::unique_ptr<Node> statement;
     };
 
     struct ConditionalStatement : public Node {
@@ -220,6 +231,7 @@ private:
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
+    std::unique_ptr<Node> entry_declaration();
     std::unique_ptr<Node> function_declaration();
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> variable_assignment();
