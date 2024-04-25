@@ -1,38 +1,6 @@
 #include <program/compiler.h>
 
-Registry::Registry() : qw("rax"), dw("eax"), w("ax"), b("al") {}
-Registry::Registry(const std::string &qw, const std::string &dw, const std::string &w, const std::string &b) : qw(qw), dw(dw), w(w), b(b) {}
-
-Registries::Registries() {}
-
-void Registries::next() {
-    if (areg->b == rax.b) {
-        areg = &rbx;
-    } else if (areg->b == rbx.b) {
-        areg = &rcx;
-    } else if (areg->b == rcx.b) {
-        areg = &rdx;
-    } else if (areg->b == rdx.b) {
-        areg = &r8;
-    } else if (areg->b == r8.b) {
-        areg = &r9;
-    } else if (areg->b == r9.b) {
-        areg = &r9;
-    }
-}
-
-void Registries::back() {
-}
-
-Registry Registries::rax("rax", "eax", "ax", "al");
-Registry Registries::rbx("rbx", "ebx", "bx", "bl");
-Registry Registries::rcx("rcx", "ecx", "cx", "cl");
-Registry Registries::rdx("rdx", "edx", "dx", "dl");
-Registry Registries::r8("r8", "r8d", "r8w", "r8b");
-Registry Registries::r9("r9", "r9d", "r9w", "r9b");
-Registry *Registries::areg = &rax;
-
-Compiler::Compiler(const Parser &parser, const std::string &fp) {
+Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) {
     success = true;
 
     sfn = fp;
@@ -50,7 +18,7 @@ Compiler::Compiler(const Parser &parser, const std::string &fp) {
         throw std::runtime_error("Failed to open asm file");
     }
 
-    compile(parser.get());
+    compile(ir_generator);
 
     file_stream.close();
 
@@ -80,150 +48,54 @@ void Compiler::run() {
     run_cmd("call " + sfn + ".exe");
 }
 
-void Compiler::compile(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
-    for (const auto &t : ast) {
-        evaluate_global_statement(t.get());
-    }
-
+void Compiler::compile(const IRGenerator &ir_generator) {
     file_stream << "bits 64" << '\n';
     file_stream << "default rel" << '\n';
     file_stream << '\n';
-    file_stream << "extern ExitProcess" << '\n';
-    for (const auto &v : extern_fns) {
-        file_stream << "extern " << v << '\n';
+    for (const auto &l : ir_generator.get_ext_libs()) {
+        file_stream << "extern " << l << '\n';
     }
     file_stream << '\n';
     file_stream << "segment .data" << '\n';
-    for (const auto &v : segment_data) {
-        file_stream << '\t' << v << '\n';
+    for (const auto &declaration : ir_generator.get_data().declarations) {
+        if (const auto *db = dynamic_cast<const IRGenerator::Db*>(declaration.get())) {
+            file_stream << '\t' << db->id << " db " << db->value << ", 0xd, 0xa, 0" << '\n';
+        }
     }
     file_stream << '\n';
     file_stream << "segment .text" << '\n';
-    for (const auto &v : segment_text) {
-        file_stream << '\t' << v << '\n';
-    }
-    file_stream << '\t' << "global main" << '\n';
-    file_stream << '\n';
-    file_stream << "main:" << '\n';
-    file_stream << '\t' << "push rbp" << '\n';
-    file_stream << '\t' << "mov rbp, rsp" << '\n';
-    file_stream << '\t' << "sub rsp, 32" << '\n';
-    file_stream << '\n';
-    for (const auto &v : entry_main) {
-        file_stream << '\t' << v << '\n';
-    }
-    file_stream << '\n';
-    file_stream << '\t' << "xor rax, rax" << '\n';
-    file_stream << '\t' << "call ExitProcess" << '\n';
-}
-
-void Compiler::evaluate_global_statement(const Parser::Node *expr) {
-    if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
-        evaluate_statement(node->statement.get());
-    } else {
-        success = false;
-        throw std::runtime_error("Unsupported global statement encountered.");
-    }
-}
-
-void Compiler::evaluate_statement(const Parser::Node *expr) {
-    ix = entry_main.size();
-    Registries::areg = &Registries::rax;
-    if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
-        evaluate_statement(node->statement.get());
-    } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
-        for (const auto &t : node->ast) {
-            evaluate_statement(t.get());
+    for (const auto &d : ir_generator.get_text().declarations) {
+        if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
+            file_stream << '\t' << "global " << entry->id << '\n';
         }
-    } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
-        evaluate_function_call(node);
-    } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
-    } else {
-        success = false;
-        throw std::runtime_error("Unsupported statement encountered.");
     }
-}
 
-void Compiler::evaluate_expr(const Parser::Node *node) {
-    if (const auto *child_node = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
-        std::string hash = "msg" + get_hash(8);
-        segment_data.push_back(hash + " db \"%d\", 0xd, 0xa, 0");
-        entry_main.insert(entry_main.begin() + ix, "lea " + Registries::areg->qw + ", [" + hash + "]");
-        ix += 1;
-        Registries::next();
-        entry_main.insert(entry_main.begin() + ix, "mov " + Registries::areg->dw + ", " + std::to_string(child_node->value));
-        ix += 1;
-    } else if (const auto *child_node = dynamic_cast<const Parser::FloatLiteral*>(node)) {
-    } else if (const auto *child_node = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
-    } else if (const auto *child_node = dynamic_cast<const Parser::StringLiteral*>(node)) {
-        std::string hash = "msg" + get_hash(8);
-        segment_data.push_back(hash + " db \"" + child_node->value + "\", 0xd, 0xa, 0");
-        entry_main.insert(entry_main.begin() + ix, "lea " + Registries::areg->qw + ", [" + hash + "]");
-        ix += 1;
-    } else if (const auto *n = dynamic_cast<const Parser::UnaryOperation*>(node)) {
-    } else if (const auto *n = dynamic_cast<const Parser::BinaryOperation*>(node)) {
-        if (n->op == "*") {
-        } else if (n->op == "/") {
-        } else if (n->op == "+") {
-        } else if (n->op == "-") {
-        } else if (n->op == "%") {
-        } else if (n->op == "==") {
-        } else if (n->op == "!=") {
-        } else if (n->op == ">") {
-        } else if (n->op == ">=") {
-        } else if (n->op == "<") {
-        } else if (n->op == "<=") {
-        } else {
-            success = false;
-            throw std::runtime_error("Unsupported operator.");
+    for (const auto &d : ir_generator.get_text().declarations) {
+        if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
+            file_stream << entry->id << ':' << '\n';
+            for (const auto &instruction : entry->instructions) {
+                if (const auto *push_instr = dynamic_cast<const IRGenerator::Push*>(instruction.get())) {
+                    file_stream << '\t' << "push " << push_instr->src << '\n';
+                } else if (const auto *mov_instr = dynamic_cast<const IRGenerator::Mov*>(instruction.get())) {
+                    file_stream << '\t' << "mov " << mov_instr->dst << ", " << mov_instr->src << '\n';
+                } else if (const auto *lea_instr = dynamic_cast<const IRGenerator::Lea*>(instruction.get())) {
+                    file_stream << '\t' << "lea " << lea_instr->dst << ", " << lea_instr->src << '\n';
+                } else if (const auto *imul_instr = dynamic_cast<const IRGenerator::Imul*>(instruction.get())) {
+                    file_stream << '\t' << "imul " << imul_instr->dst << ", " << imul_instr->src << '\n';
+                } else if (const auto *sub_instr = dynamic_cast<const IRGenerator::Sub*>(instruction.get())) {
+                    file_stream << '\t' << "sub " << sub_instr->dst << ", " << sub_instr->src << '\n';
+                } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction.get())) {
+                    file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
+                } else if (const auto *call_instr = dynamic_cast<const IRGenerator::Call*>(instruction.get())) {
+                    file_stream << '\t' << "call " << call_instr->id << '\n';
+                }
+            }
         }
-    } else {
-        success = false;
-        throw std::runtime_error("Unsupported expression encountered.");
     }
-}
-
-void Compiler::evaluate_function_call(const Parser::FunctionCall *expr) {
-    if (expr->identifier == "println") {
-        if (std::find(extern_fns.begin(), extern_fns.end(), "printf") == extern_fns.end()) {
-            extern_fns.push_back("printf");
-        }
-
-        entry_main.insert(entry_main.begin() + ix, "call printf");
-
-        Registries::areg = &Registries::rcx;
-        evaluate_expr(expr->args[0].get());
-    } else {
-        success = false;
-        throw std::runtime_error("Function signature: \"" + expr->identifier + "\" with " + std::to_string(expr->args.size()) + " args not defined");
-    }
-}
-
-void Compiler::evaluate_unary_operation(const Parser::UnaryOperation *expr) {
-}
-
-void Compiler::evaluate_binary_operation(const Parser::BinaryOperation *expr) {
 }
 
 int Compiler::run_cmd(const std::string &cmd) {
     return system(cmd.c_str());
-}
-
-std::string Compiler::get_hash(const size_t &length) {
-    const char legal_chars[] = "0123456789abcdef";
-
-    std::random_device rd;
-    std::mt19937 generator(rd());
-
-    std::uniform_int_distribution<> distribution(0, sizeof(legal_chars) - 2);
-
-    std::string res;
-
-    for (size_t i = 0; i < length; ++i) {
-        res += legal_chars[distribution(generator)];
-    }
-
-    return res;
 }
 
 const bool& Compiler::get_success() const {

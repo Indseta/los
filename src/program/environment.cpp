@@ -1,5 +1,5 @@
 #include <program/environment.h>
-#define NLOG
+// #define NLOG
 
 void Environment::run(const std::string &fp) {
 #ifdef NLOG
@@ -42,7 +42,7 @@ void Environment::run(const std::string &fp) {
     ir_generator.log();
 #endif
 
-    Compiler compiler(parser, fp);
+    Compiler compiler(ir_generator, fp);
     if (!compiler.get_success()) {
         std::cout << "Exiting due to compile error." << '\n';
         return;

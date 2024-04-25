@@ -33,6 +33,13 @@ public:
         Instruction();
         virtual void log() const override;
     };
+    struct Entry : public Declaration {
+        Entry();
+        Entry(const std::string &id);
+        std::string id;
+        std::vector<std::unique_ptr<Instruction>> instructions;
+        virtual void log() const override;
+    };
     struct Push : public Instruction {
         Push();
         Push(const std::string &src);
@@ -42,31 +49,31 @@ public:
     struct Mov : public Instruction {
         Mov();
         Mov(const std::string &dst, const std::string &src);
-        std::string src, dst;
+        std::string dst, src;
         void log() const override;
     };
     struct Lea : public Instruction {
         Lea();
         Lea(const std::string &dst, const std::string &src);
-        std::string src, dst;
+        std::string dst, src;
         void log() const override;
     };
     struct Imul : public Instruction {
         Imul();
-        Imul(const std::string &src);
-        std::string src;
+        Imul(const std::string &dst, const std::string &src);
+        std::string dst, src;
         void log() const override;
     };
     struct Sub : public Instruction {
         Sub();
         Sub(const std::string &dst, const std::string &src);
-        std::string src, dst;
+        std::string dst, src;
         void log() const override;
     };
     struct Xor : public Instruction {
         Xor();
         Xor(const std::string &dst, const std::string &src);
-        std::string src, dst;
+        std::string dst, src;
         void log() const override;
     };
     struct Call : public Instruction {
@@ -74,13 +81,6 @@ public:
         Call(const std::string &id);
         std::string id;
         void log() const override;
-    };
-    struct Entry : public Declaration {
-        Entry();
-        Entry(const std::string &id);
-        std::string id;
-        std::vector<std::unique_ptr<Instruction>> instructions;
-        virtual void log() const override;
     };
 
     IRGenerator(const Parser &parser);

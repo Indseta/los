@@ -1,30 +1,3 @@
-// bits 64
-// default rel
-
-// extern ExitProcess
-// extern printf
-
-// segment .data
-// 	   msgc5f1a964 db "Hello world", 0xd, 0xa, 0
-// 	   msge0255f52 db "%d", 0xd, 0xa, 0
-
-// segment .text
-// 	   global main
-
-// main:
-// 	   push rbp
-// 	   mov rbp, rsp
-// 	   sub rsp, 32
-
-// 	   lea rcx, [msgc5f1a964]
-// 	   call printf
-// 	   lea rcx, [msge0255f52]
-// 	   mov edx, 2763
-// 	   call printf
-
-// 	   xor rax, rax
-// 	   call ExitProcess
-
 #include <program/ir_generator.h>
 
 IRGenerator::IRGenerator(const Parser &parser) {
@@ -82,12 +55,12 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr, Entry
             evaluate_expr(node, entry, "rcx");
         } else if (const auto *node = dynamic_cast<const Parser::IntegerLiteral*>(expr->args[0].get())) {
             const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "%d"));
+            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
             entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
             evaluate_expr(node, entry, "edx");
         } else if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr->args[0].get())) {
             const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "%d"));
+            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
             entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
             evaluate_expr(node, entry, "edx");
         }
@@ -106,7 +79,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *node = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
     } else if (const auto *node = dynamic_cast<const Parser::StringLiteral*>(expr)) {
         const auto id = "data" + get_hash(16);
-        data.declarations.push_back(std::make_unique<Db>(id, node->value));
+        data.declarations.push_back(std::make_unique<Db>(id, '\"' + node->value + '\"'));
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + id + "]"));
     } else if (const auto *node = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
     } else if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
@@ -133,10 +106,12 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr,
             entry->instructions.push_back(std::make_unique<Mov>("eax", std::to_string(left->value)));
         }
         if (const auto *right = dynamic_cast<const Parser::IntegerLiteral*>(expr->right.get())) {
-            entry->instructions.push_back(std::make_unique<Imul>(std::to_string(right->value)));
+            entry->instructions.push_back(std::make_unique<Imul>("eax", std::to_string(right->value)));
         }
 
-        entry->instructions.push_back(std::make_unique<Mov>(target, "eax"));
+        if (target != "eax") {
+            entry->instructions.push_back(std::make_unique<Mov>(target, "eax"));
+        }
     } else if (expr->op == "/") {
     } else if (expr->op == "+") {
     } else if (expr->op == "-") {
@@ -270,6 +245,25 @@ void IRGenerator::Instruction::log() const {
     std::cout << "instruction" << '\n';
 }
 
+IRGenerator::Entry::Entry() {}
+
+IRGenerator::Entry::Entry(const std::string &id) : id(id) {}
+
+void IRGenerator::Entry::log() const {
+    std::cout << "entry: (";
+    std::cout << "id: '";
+    std::cout << id;
+    std::cout << "', instructions: (";
+    if (instructions.size() > 0) {
+        std::cout << '\n';
+        for (const auto &t : instructions) {
+            std::cout << '\t';
+            t->log();
+        }
+    }
+    std::cout << "))" << '\n';
+}
+
 IRGenerator::Push::Push() {}
 
 IRGenerator::Push::Push(const std::string &src) : src(src) {}
@@ -309,11 +303,13 @@ void IRGenerator::Lea::log() const {
 
 IRGenerator::Imul::Imul() {}
 
-IRGenerator::Imul::Imul(const std::string &src) : src(src) {}
+IRGenerator::Imul::Imul(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
 
 void IRGenerator::Imul::log() const {
     std::cout << "imul: (";
-    std::cout << "src: '";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
     std::cout << src;
     std::cout << "')" << '\n';
 }
@@ -353,23 +349,4 @@ void IRGenerator::Call::log() const {
     std::cout << "id: '";
     std::cout << id;
     std::cout << "')" << '\n';
-}
-
-IRGenerator::Entry::Entry() {}
-
-IRGenerator::Entry::Entry(const std::string &id) : id(id) {}
-
-void IRGenerator::Entry::log() const {
-    std::cout << "entry: (";
-    std::cout << "id: '";
-    std::cout << id;
-    std::cout << "', instructions: (";
-    if (instructions.size() > 0) {
-        std::cout << '\n';
-        for (const auto &t : instructions) {
-            std::cout << '\t';
-            t->log();
-        }
-    }
-    std::cout << "))" << '\n';
 }
