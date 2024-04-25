@@ -1,3 +1,4 @@
 .vscode
 build
 bin/los.exe
+project/src/main.exe

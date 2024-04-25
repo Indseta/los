@@ -1,5 +1,5 @@
 #include <program/environment.h>
-// #define NLOG
+#define NLOG
 
 void Environment::run(const std::string &fp) {
 #ifdef NLOG

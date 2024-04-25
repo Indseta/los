@@ -64,6 +64,12 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Add : public Instruction {
+        Add();
+        Add(const std::string &dst, const std::string &src);
+        std::string dst, src;
+        void log() const override;
+    };
     struct Sub : public Instruction {
         Sub();
         Sub(const std::string &dst, const std::string &src);
