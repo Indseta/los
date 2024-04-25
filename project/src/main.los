@@ -1,4 +1,4 @@
 void main() {
     println("Hello world");
-    println(2763);
+    println(246);
 }

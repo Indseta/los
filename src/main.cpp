@@ -1,9 +1,9 @@
 #include <nlohmann/json.hpp>
 #include <whereami/whereami.h>
 
+#define NLOG
 #include <program/environment.h>
 
-#include <chrono>
 #include <cstring>
 #include <istream>
 #include <iostream>
@@ -76,8 +76,6 @@ int main(int argc, char *argv[]) {
         std::cout << "los v" << version << '\n';
     } else {
         // Start program
-        auto start = std::chrono::high_resolution_clock::now();
-
         Environment environment;
         try {
             std::string fp = argv[1];
@@ -87,14 +85,6 @@ int main(int argc, char *argv[]) {
             std::cerr << e.what() << '\n';
             return EXIT_FAILURE;
         }
-
-        // End program
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
-
-        // std::cout << '\n';
-        // std::cout << std::fixed;
-        // std::cout << "[Done] Program finished in " << elapsed.count() / 1000.0 << " seconds" << '\n';
     }
 
     return EXIT_SUCCESS;

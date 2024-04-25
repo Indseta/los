@@ -177,6 +177,15 @@ const bool& Lexer::get_success() const {
     return success;
 }
 
+void Lexer::log() const {
+    std::cout << " -- Lex result -- " << '\n';
+    for (const auto &t : tokens) {
+        t.log();
+        std::cout << '\n';
+    }
+    std::cout << '\n';
+}
+
 void Lexer::Token::log() const {
     std::cout << "(";
     switch (category) {

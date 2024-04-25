@@ -310,3 +310,12 @@ const std::vector<std::unique_ptr<Parser::Node>>& Parser::get() const {
 const bool& Parser::get_success() const {
     return success;
 }
+
+void Parser::log() const {
+    std::cout << " -- Parse result -- " << '\n';
+    for (const auto &n : ast) {
+        n->log();
+        std::cout << '\n';
+    }
+    std::cout << '\n';
+}

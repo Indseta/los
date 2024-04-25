@@ -28,62 +28,135 @@
 #include <program/ir_generator.h>
 
 IRGenerator::IRGenerator(const Parser &parser) {
+    success = true;
     generate_ir(parser.get());
 }
 
 void IRGenerator::generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
     for (const auto &t : ast) {
-        evaluate_statement(t.get());
+        evaluate_global_statement(t.get());
     }
 }
 
-void IRGenerator::evaluate_statement(const Parser::Node *expr) {
+void IRGenerator::evaluate_global_statement(const Parser::Node *expr) {
     if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
-    } else if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
-        evaluate_function_call(node);
+        evaluate_entry(node);
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
+        success = false;
         throw std::runtime_error("Unsupported statement encountered.");
     }
 }
 
-void IRGenerator::evaluate_expr(const Parser::Node *node) {
-    if (const auto *child_node = dynamic_cast<const Parser::IntegerLiteral*>(node)) {
-    } else if (const auto *child_node = dynamic_cast<const Parser::FloatLiteral*>(node)) {
-    } else if (const auto *child_node = dynamic_cast<const Parser::BooleanLiteral*>(node)) {
-    } else if (const auto *child_node = dynamic_cast<const Parser::StringLiteral*>(node)) {
-    } else if (const auto *n = dynamic_cast<const Parser::UnaryOperation*>(node)) {
-    } else if (const auto *n = dynamic_cast<const Parser::BinaryOperation*>(node)) {
-        if (n->op == "*") {
-        } else if (n->op == "/") {
-        } else if (n->op == "+") {
-        } else if (n->op == "-") {
-        } else if (n->op == "%") {
-        } else if (n->op == "==") {
-        } else if (n->op == "!=") {
-        } else if (n->op == ">") {
-        } else if (n->op == ">=") {
-        } else if (n->op == "<") {
-        } else if (n->op == "<=") {
-        } else {
-            throw std::runtime_error("Unsupported operator.");
+void IRGenerator::evaluate_entry(const Parser::Entry *expr) {
+    auto entry = std::make_unique<Entry>("main");
+    add_extern("ExitProcess");
+    entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
+    entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
+    entry.get()->instructions.push_back(std::make_unique<Sub>("rsp", "32"));
+    if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr->statement.get())) {
+        for (const auto &t : node->ast) {
+            evaluate_statement(t.get(), entry.get());
         }
     } else {
-        throw std::runtime_error("Unsupported expression encountered.");
+        evaluate_statement(expr->statement.get(), entry.get());
+    }
+    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+    entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
+    text.declarations.push_back(std::move(entry));
+}
+
+void IRGenerator::evaluate_statement(const Parser::Node *expr, Entry *entry) {
+    if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+        evaluate_function_call(node, entry);
+    } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
+    } else {
+        success = false;
+        throw std::runtime_error("Unsupported statement encountered.");
     }
 }
 
-void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr) {
+void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr, Entry *entry) {
     if (expr->identifier == "println") {
+        if (const auto *node = dynamic_cast<const Parser::StringLiteral*>(expr->args[0].get())) {
+            evaluate_expr(node, entry, "rcx");
+        } else if (const auto *node = dynamic_cast<const Parser::IntegerLiteral*>(expr->args[0].get())) {
+            const auto id = "data" + get_hash(16);
+            data.declarations.push_back(std::make_unique<Db>(id, "%d"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            evaluate_expr(node, entry, "edx");
+        } else if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr->args[0].get())) {
+            const auto id = "data" + get_hash(16);
+            data.declarations.push_back(std::make_unique<Db>(id, "%d"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            evaluate_expr(node, entry, "edx");
+        }
+        add_extern("printf");
+        entry->instructions.push_back(std::make_unique<Call>("printf"));
     } else {
+        success = false;
         throw std::runtime_error("Function signature: \"" + expr->identifier + "\" with " + std::to_string(expr->args.size()) + " args not defined");
     }
 }
 
-void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr) {
+void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target) {
+    if (const auto *node = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
+        entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(node->value)));
+    } else if (const auto *node = dynamic_cast<const Parser::FloatLiteral*>(expr)) {
+    } else if (const auto *node = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
+    } else if (const auto *node = dynamic_cast<const Parser::StringLiteral*>(expr)) {
+        const auto id = "data" + get_hash(16);
+        data.declarations.push_back(std::make_unique<Db>(id, node->value));
+        entry->instructions.push_back(std::make_unique<Lea>(target, "[" + id + "]"));
+    } else if (const auto *node = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
+    } else if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
+        evaluate_binary_operation(node, entry, target);
+    } else {
+        success = false;
+        throw std::runtime_error("Unsupported expression encountered.");
+    }
 }
 
-void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr) {
+void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target) {
+}
+
+void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr, Entry *entry, const std::string &target) {
+    if (expr->op == "*") {
+        if (const auto *left = dynamic_cast<const Parser::BinaryOperation*>(expr->left.get())) {
+            evaluate_binary_operation(left, entry, "eax");
+        }
+        if (const auto *right = dynamic_cast<const Parser::BinaryOperation*>(expr->right.get())) {
+            evaluate_binary_operation(right, entry, "ebx");
+        }
+
+        if (const auto *left = dynamic_cast<const Parser::IntegerLiteral*>(expr->left.get())) {
+            entry->instructions.push_back(std::make_unique<Mov>("eax", std::to_string(left->value)));
+        }
+        if (const auto *right = dynamic_cast<const Parser::IntegerLiteral*>(expr->right.get())) {
+            entry->instructions.push_back(std::make_unique<Imul>(std::to_string(right->value)));
+        }
+
+        entry->instructions.push_back(std::make_unique<Mov>(target, "eax"));
+    } else if (expr->op == "/") {
+    } else if (expr->op == "+") {
+    } else if (expr->op == "-") {
+    } else if (expr->op == "%") {
+    } else if (expr->op == "==") {
+    } else if (expr->op == "!=") {
+    } else if (expr->op == ">") {
+    } else if (expr->op == ">=") {
+    } else if (expr->op == "<") {
+    } else if (expr->op == "<=") {
+    } else {
+        success = false;
+        throw std::runtime_error("Unsupported operator.");
+    }
+}
+
+void IRGenerator::add_extern(const std::string &id) {
+    if (std::find(ext_libs.begin(), ext_libs.end(), id) == ext_libs.end()) {
+        ext_libs.push_back(id);
+    }
 }
 
 std::string IRGenerator::get_hash(const size_t &length) {
@@ -101,4 +174,202 @@ std::string IRGenerator::get_hash(const size_t &length) {
     }
 
     return res;
+}
+
+const std::vector<std::string>& IRGenerator::get_ext_libs() const {
+    return ext_libs;
+}
+
+const IRGenerator::Segment& IRGenerator::get_data() const {
+    return data;
+}
+
+const IRGenerator::Segment& IRGenerator::get_bss() const {
+    return bss;
+}
+
+const IRGenerator::Segment& IRGenerator::get_text() const {
+    return text;
+}
+
+const bool& IRGenerator::get_success() const {
+    return success;
+}
+
+void IRGenerator::log() const {
+    std::cout << " -- IR result -- " << '\n';
+    std::cout << "extern: (";
+    for (int i = 0; i < ext_libs.size(); ++i) {
+        const auto &l = ext_libs[i];
+        std::cout << '\'' << l << '\'';
+        if (i != ext_libs.size() - 1) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << ")" << '\n';
+    std::cout << '\n';
+    std::cout << "segment .data" << '\n';
+    for (const auto &n : data.declarations) {
+        n->log();
+    }
+    std::cout << '\n';
+    std::cout << "segment .bss" << '\n';
+    for (const auto &n : bss.declarations) {
+        n->log();
+    }
+    std::cout << '\n';
+    std::cout << "segment .text" << '\n';
+    for (const auto &n : text.declarations) {
+        n->log();
+    }
+    std::cout << '\n';
+}
+
+IRGenerator::Statement::Statement() {}
+
+void IRGenerator::Statement::log() const {
+    std::cout << "statement: (none)" << '\n';
+}
+
+IRGenerator::Declaration::Declaration() {}
+
+void IRGenerator::Declaration::log() const {
+    std::cout << "declaration: (none)" << '\n';
+}
+
+IRGenerator::Db::Db() {}
+
+IRGenerator::Db::Db(const std::string &id, const std::string &value) : id(id), value(value) {}
+
+void IRGenerator::Db::log() const {
+    std::cout << "db: (";
+    std::cout << "id: '";
+    std::cout << id;
+    std::cout << "', value: '";
+    std::cout << value;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Segment::Segment() {}
+
+void IRGenerator::Segment::log() const {
+    std::cout << "segment: (";
+    if (declarations.size() > 0) {
+        std::cout << '\n';
+        for (const auto &t : declarations) {
+            std::cout << '\t';
+            t->log();
+        }
+    }
+    std::cout << ")" << '\n';
+}
+
+IRGenerator::Instruction::Instruction() {}
+
+void IRGenerator::Instruction::log() const {
+    std::cout << "instruction" << '\n';
+}
+
+IRGenerator::Push::Push() {}
+
+IRGenerator::Push::Push(const std::string &src) : src(src) {}
+
+void IRGenerator::Push::log() const {
+    std::cout << "push: (";
+    std::cout << "src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Mov::Mov() {}
+
+IRGenerator::Mov::Mov(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Mov::log() const {
+    std::cout << "mov: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Lea::Lea() {}
+
+IRGenerator::Lea::Lea(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Lea::log() const {
+    std::cout << "lea: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Imul::Imul() {}
+
+IRGenerator::Imul::Imul(const std::string &src) : src(src) {}
+
+void IRGenerator::Imul::log() const {
+    std::cout << "imul: (";
+    std::cout << "src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Sub::Sub() {}
+
+IRGenerator::Sub::Sub(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Sub::log() const {
+    std::cout << "sub: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Xor::Xor() {}
+
+IRGenerator::Xor::Xor(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Xor::log() const {
+    std::cout << "xor: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Call::Call() {}
+
+IRGenerator::Call::Call(const std::string &id) : id(id) {}
+
+void IRGenerator::Call::log() const {
+    std::cout << "call: (";
+    std::cout << "id: '";
+    std::cout << id;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Entry::Entry() {}
+
+IRGenerator::Entry::Entry(const std::string &id) : id(id) {}
+
+void IRGenerator::Entry::log() const {
+    std::cout << "entry: (";
+    std::cout << "id: '";
+    std::cout << id;
+    std::cout << "', instructions: (";
+    if (instructions.size() > 0) {
+        std::cout << '\n';
+        for (const auto &t : instructions) {
+            std::cout << '\t';
+            t->log();
+        }
+    }
+    std::cout << "))" << '\n';
 }

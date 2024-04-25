@@ -43,6 +43,8 @@ public:
 
     const bool& get_success() const;
 
+    void log() const;
+
 private:
     void lex(const std::string &raw);
     const bool is_keyword(const std::string &value) const;

@@ -39,6 +39,9 @@ public:
     Compiler(const Parser &parser, const std::string &fp);
     ~Compiler();
 
+    const bool& get_success() const;
+    void run();
+
 private:
     void compile(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
@@ -52,7 +55,9 @@ private:
     int run_cmd(const std::string &cmd);
     std::string get_hash(const size_t &length);
 
+    bool success;
     size_t ix;
+    std::string sfn;
 
     std::ofstream file_stream;
 

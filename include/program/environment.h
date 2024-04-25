@@ -2,6 +2,7 @@
 
 #define NDEBUG
 
+#include <chrono>
 #include <iostream>
 
 #include <program/source.h>

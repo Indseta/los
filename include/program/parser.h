@@ -212,6 +212,8 @@ public:
 
     const bool& get_success() const;
 
+    void log() const;
+
 private:
     std::vector<std::unique_ptr<Node>> ast;
     const std::vector<Lexer::Token> &tokens;

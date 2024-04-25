@@ -33,7 +33,9 @@ Registry Registries::r9("r9", "r9d", "r9w", "r9b");
 Registry *Registries::areg = &rax;
 
 Compiler::Compiler(const Parser &parser, const std::string &fp) {
-    std::string sfn = fp;
+    success = true;
+
+    sfn = fp;
     std::string ext = ".los";
 
     size_t pos = sfn.find(ext);
@@ -44,6 +46,7 @@ Compiler::Compiler(const Parser &parser, const std::string &fp) {
     file_stream.open(sfn + ".asm");
 
     if (!file_stream.is_open()) {
+        success = false;
         throw std::runtime_error("Failed to open asm file");
     }
 
@@ -53,23 +56,28 @@ Compiler::Compiler(const Parser &parser, const std::string &fp) {
 
     if (run_cmd("nasm -f win64 -g -o " + sfn + ".o " + sfn + ".asm")) {
         std::cout << "Assembly failed." << '\n';
+        success = false;
         return;
     }
 
     if (run_cmd("gcc -m64 -g " + sfn + ".o -o " + sfn)) {
         std::cout << "Linking failed." << '\n';
+        success = false;
         return;
     }
 
     run_cmd("del " + sfn + ".o");
     run_cmd("del " + sfn + ".asm");
-    run_cmd("call " + sfn + ".exe");
 }
 
 Compiler::~Compiler() {
     if (file_stream.is_open()) {
         file_stream.close();
     }
+}
+
+void Compiler::run() {
+    run_cmd("call " + sfn + ".exe");
 }
 
 void Compiler::compile(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
@@ -113,6 +121,7 @@ void Compiler::evaluate_global_statement(const Parser::Node *expr) {
     if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
         evaluate_statement(node->statement.get());
     } else {
+        success = false;
         throw std::runtime_error("Unsupported global statement encountered.");
     }
 }
@@ -130,6 +139,7 @@ void Compiler::evaluate_statement(const Parser::Node *expr) {
         evaluate_function_call(node);
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
+        success = false;
         throw std::runtime_error("Unsupported statement encountered.");
     }
 }
@@ -164,9 +174,11 @@ void Compiler::evaluate_expr(const Parser::Node *node) {
         } else if (n->op == "<") {
         } else if (n->op == "<=") {
         } else {
+            success = false;
             throw std::runtime_error("Unsupported operator.");
         }
     } else {
+        success = false;
         throw std::runtime_error("Unsupported expression encountered.");
     }
 }
@@ -182,6 +194,7 @@ void Compiler::evaluate_function_call(const Parser::FunctionCall *expr) {
         Registries::areg = &Registries::rcx;
         evaluate_expr(expr->args[0].get());
     } else {
+        success = false;
         throw std::runtime_error("Function signature: \"" + expr->identifier + "\" with " + std::to_string(expr->args.size()) + " args not defined");
     }
 }
@@ -211,4 +224,8 @@ std::string Compiler::get_hash(const size_t &length) {
     }
 
     return res;
+}
+
+const bool& Compiler::get_success() const {
+    return success;
 }
