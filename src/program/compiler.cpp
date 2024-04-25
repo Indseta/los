@@ -22,13 +22,13 @@ Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) {
 
     file_stream.close();
 
-    if (run_cmd("nasm -f win64 -g -o " + sfn + ".o " + sfn + ".asm")) {
+    if (run_cmd("nasm.exe -f win64 -g -o " + sfn + ".o " + sfn + ".asm")) {
         std::cout << "Assembly failed." << '\n';
         success = false;
         return;
     }
 
-    if (run_cmd("gcc -m64 -g " + sfn + ".o -o " + sfn)) {
+    if (run_cmd("gcc.exe -m64 -g " + sfn + ".o -o " + sfn)) {
         std::cout << "Linking failed." << '\n';
         success = false;
         return;
