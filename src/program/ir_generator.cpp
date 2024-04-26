@@ -1,5 +1,22 @@
 #include <program/ir_generator.h>
 
+// main:
+//     push rbp
+//     mov rbp, rsp
+//     sub rsp, 32
+
+//     mov eax, 50
+//     mov ebx, 3
+//     xor edx, edx
+//     idiv ebx
+//     mov edx, eax
+
+//     lea rcx, [msg]
+//     call printf
+
+//     xor rcx, rcx
+//     call ExitProcess
+
 IRGenerator::IRGenerator(const Parser &parser) {
     success = true;
     generate_ir(parser.get());
@@ -34,7 +51,7 @@ void IRGenerator::evaluate_entry(const Parser::Entry *expr) {
     } else {
         evaluate_statement(expr->statement.get(), entry.get());
     }
-    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+    entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
     entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
     text.declarations.push_back(std::move(entry));
 }
@@ -51,14 +68,14 @@ void IRGenerator::evaluate_statement(const Parser::Node *expr, Entry *entry) {
 
 void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr, Entry *entry) {
     if (expr->identifier == "println") {
-        if (const auto *node = dynamic_cast<const Parser::StringLiteral*>(expr->args[0].get())) {
-            evaluate_expr(node, entry, "rcx");
-        } else if (const auto *node = dynamic_cast<const Parser::IntegerLiteral*>(expr->args[0].get())) {
+        if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr->args[0].get())) {
             const auto id = "data" + get_hash(16);
             data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
             evaluate_expr(node, entry, "edx");
             entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
-        } else if (const auto *node = dynamic_cast<const Parser::BinaryOperation*>(expr->args[0].get())) {
+        } else if (const auto *node = dynamic_cast<const Parser::StringLiteral*>(expr->args[0].get())) {
+            evaluate_expr(node, entry, "rcx");
+        } else if (const auto *node = dynamic_cast<const Parser::IntegerLiteral*>(expr->args[0].get())) {
             const auto id = "data" + get_hash(16);
             data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
             evaluate_expr(node, entry, "edx");
@@ -78,7 +95,11 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr, Entry
 }
 
 void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target) {
-    if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
+    if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
+        evaluate_unary_operation(operation, entry, target);
+    } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
+        evaluate_binary_operation(operation, entry, target);
+    } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::FloatLiteral*>(expr)) {
     } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
@@ -86,10 +107,6 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         const auto id = "data" + get_hash(16);
         data.declarations.push_back(std::make_unique<Db>(id, '\"' + literal->value + '\"'));
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + id + "]"));
-    } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
-        evaluate_unary_operation(operation, entry, target);
-    } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
-        evaluate_binary_operation(operation, entry, target);
     } else {
         success = false;
         throw std::runtime_error("Unsupported expression encountered.");
@@ -113,6 +130,13 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr,
         evaluate_binary_operation(right, entry, target);
     }
 
+    if (const auto *left = dynamic_cast<const Parser::UnaryOperation*>(expr->left.get())) {
+        evaluate_unary_operation(left, entry, "ebx");
+    }
+    if (const auto *right = dynamic_cast<const Parser::UnaryOperation*>(expr->right.get())) {
+        evaluate_unary_operation(right, entry, target);
+    }
+
     if (const auto *left = dynamic_cast<const Parser::IntegerLiteral*>(expr->left.get())) {
         entry->instructions.push_back(std::make_unique<Mov>("ebx", std::to_string(left->value)));
     }
@@ -120,8 +144,16 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr,
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(right->value)));
     }
 
-    if (expr->op == "*") {
-        entry->instructions.push_back(std::make_unique<Imul>(target, "ebx"));
+    if (expr->op == "*" || expr->op == "/") {
+        if (expr->op == "*") {
+            entry->instructions.push_back(std::make_unique<Imul>(target, "ebx"));
+        } else {
+            entry->instructions.push_back(std::make_unique<Mov>("eax", "ebx"));
+            entry->instructions.push_back(std::make_unique<Mov>("ebx", target));
+            entry->instructions.push_back(std::make_unique<Xor>("edx", "edx"));
+            entry->instructions.push_back(std::make_unique<Idiv>("ebx"));
+            entry->instructions.push_back(std::make_unique<Mov>(target, "eax"));
+        }
     } else if (expr->op == "+" || expr->op == "-") {
         if (expr->op == "+") {
             entry->instructions.push_back(std::make_unique<Add>(target, "ebx"));
@@ -315,6 +347,17 @@ void IRGenerator::Imul::log() const {
     std::cout << "dst: '";
     std::cout << dst;
     std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Idiv::Idiv() {}
+
+IRGenerator::Idiv::Idiv(const std::string &src) : src(src) {}
+
+void IRGenerator::Idiv::log() const {
+    std::cout << "idiv: (";
+    std::cout << "src: '";
     std::cout << src;
     std::cout << "')" << '\n';
 }
