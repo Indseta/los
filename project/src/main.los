@@ -1,4 +1,4 @@
 void main() {
     println("Hello world");
-    println(5 + 23);
+    println(5 + 5 * 2);
 }

@@ -63,6 +63,11 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *expr, Entry
             data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
             evaluate_expr(node, entry, "edx");
             entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+        } else if (const auto *node = dynamic_cast<const Parser::UnaryOperation*>(expr->args[0].get())) {
+            const auto id = "data" + get_hash(16);
+            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
+            evaluate_expr(node, entry, "edx");
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
         }
         add_extern("printf");
         entry->instructions.push_back(std::make_unique<Call>("printf"));
@@ -82,6 +87,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         data.declarations.push_back(std::make_unique<Db>(id, '\"' + literal->value + '\"'));
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + id + "]"));
     } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
+        evaluate_unary_operation(operation, entry, target);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target);
     } else {
@@ -91,27 +97,39 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
 }
 
 void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target) {
-}
-
-void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr, Entry *entry, const std::string &target) {
-    if (expr->op == "*") {
-        evaluate_expr(expr->left.get(), entry, "ecx");
-        evaluate_expr(expr->right.get(), entry, "ebx");
-        entry->instructions.push_back(std::make_unique<Imul>("ecx", "ebx"));
-    } else if (expr->op == "+" || expr->op == "-") {
-        evaluate_expr(expr->left.get(), entry, "ecx");
-        evaluate_expr(expr->right.get(), entry, "ebx");
-        if (expr->op == "+") {
-            entry->instructions.push_back(std::make_unique<Add>("ecx", "ebx"));
-        } else {
-            entry->instructions.push_back(std::make_unique<Sub>("ecx", "ebx"));
-        }
+    if (expr->op == "-") {
+        evaluate_expr(expr->value.get(), entry, target);
+        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));
     } else {
         throw std::runtime_error("Unsupported operator: " + expr->op);
     }
+}
 
-    if (target != "ecx") {
-        entry->instructions.push_back(std::make_unique<Mov>(target, "ecx"));
+void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *expr, Entry *entry, const std::string &target) {
+    if (const auto *left = dynamic_cast<const Parser::BinaryOperation*>(expr->left.get())) {
+        evaluate_binary_operation(left, entry, "ebx");
+    }
+    if (const auto *right = dynamic_cast<const Parser::BinaryOperation*>(expr->right.get())) {
+        evaluate_binary_operation(right, entry, target);
+    }
+
+    if (const auto *left = dynamic_cast<const Parser::IntegerLiteral*>(expr->left.get())) {
+        entry->instructions.push_back(std::make_unique<Mov>("ebx", std::to_string(left->value)));
+    }
+    if (const auto *right = dynamic_cast<const Parser::IntegerLiteral*>(expr->right.get())) {
+        entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(right->value)));
+    }
+
+    if (expr->op == "*") {
+        entry->instructions.push_back(std::make_unique<Imul>(target, "ebx"));
+    } else if (expr->op == "+" || expr->op == "-") {
+        if (expr->op == "+") {
+            entry->instructions.push_back(std::make_unique<Add>(target, "ebx"));
+        } else {
+            entry->instructions.push_back(std::make_unique<Sub>(target, "ebx"));
+        }
+    } else {
+        throw std::runtime_error("Unsupported operator: " + expr->op);
     }
 }
 

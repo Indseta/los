@@ -232,39 +232,39 @@ std::unique_ptr<Parser::Node> Parser::comparison() {
 }
 
 std::unique_ptr<Parser::Node> Parser::term() {
-    auto left = factor();
+    auto expr = factor();
 
     while (match({"+", "-"})) {
         std::string op = previous().value;
         auto right = factor();
-        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+        expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
     }
 
-    return left;
+    return expr;
 }
 
 std::unique_ptr<Parser::Node> Parser::factor() {
-    auto left = remainder();
+    auto expr = remainder();
 
     while (match({"*", "/"})) {
         std::string op = previous().value;
         auto right = remainder();
-        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+        expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
     }
 
-    return left;
+    return expr;
 }
 
 std::unique_ptr<Parser::Node> Parser::remainder() {
-    auto left = unary();
+    auto expr = unary();
 
     while (match({"%"})) {
         std::string op = previous().value;
         auto right = unary();
-        left = std::make_unique<BinaryOperation>(std::move(left), op, std::move(right));
+        expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
     }
 
-    return left;
+    return expr;
 }
 
 std::unique_ptr<Parser::Node> Parser::unary() {

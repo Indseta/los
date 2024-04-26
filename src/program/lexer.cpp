@@ -1,10 +1,9 @@
 #include <program/lexer.h>
 
 const std::vector<std::string> Lexer::keywords = {
+    "static",
     "const",
     "return",
-    "true",
-    "false",
     "if",
     "else",
     "for",
@@ -67,6 +66,23 @@ void Lexer::lex(const std::string &raw) {
         // Reset token value
         ct.category = UNKNOWN;
         ct.value = "";
+
+        // Comments
+        if (c == '/') {
+            if (raw[i + 1] == '/') {
+                while (i + 1 < raw.length() && raw[i + 1] != '\n') {
+                    ++i;
+                }
+                ++i;
+                continue;
+            } else if (raw[i + 1] == '*') {
+                while (i + 1 < raw.length() && c != '*' && raw[i + 1] != '/') {
+                    ++i;
+                }
+                ++i;
+                continue;
+            }
+        }
 
         // Keyword, identifier & boolean literal
         if (std::isalpha(c)) {
