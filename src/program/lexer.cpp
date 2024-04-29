@@ -1,16 +1,34 @@
 #include <program/lexer.h>
 
 const std::vector<std::string> Lexer::keywords = {
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "f8",
+    "f16",
+    "f32",
+    "f64",
+    "bool",
+    "string",
+    "ptr",
+    "ref",
+
+    "as",
+    "void",
     "static",
     "const",
-    "return",
     "if",
     "else",
     "for",
     "while",
+    "return",
     "break",
     "continue",
-    "as",
 };
 
 const std::vector<std::string> Lexer::operators = {

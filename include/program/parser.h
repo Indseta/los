@@ -229,16 +229,19 @@ private:
 
     bool match(const std::initializer_list<std::string> &types);
     bool match_next(const std::initializer_list<std::string> &types);
+    bool match_key();
+
+    std::unique_ptr<Node> global_statement();
+    std::unique_ptr<Node> function_declaration();
 
     std::unique_ptr<Node> statement();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
-    std::unique_ptr<Node> entry_declaration();
-    std::unique_ptr<Node> function_declaration();
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> variable_assignment();
     std::unique_ptr<Node> while_loop_statement();
     std::unique_ptr<Node> function_call();
+
     std::unique_ptr<Node> expression();
     std::unique_ptr<Node> equality();
     std::unique_ptr<Node> comparison();

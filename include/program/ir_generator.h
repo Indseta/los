@@ -109,9 +109,9 @@ private:
     void generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
     void evaluate_global_statement(const Parser::Node *expr);
-    void evaluate_entry(const Parser::Entry *expr);
-    void evaluate_statement(const Parser::Node *expr, Entry *entry);
+    void evaluate_function_declaration(const Parser::FunctionDeclaration *expr);
 
+    void evaluate_statement(const Parser::Node *expr, Entry *entry);
     void evaluate_function_call(const Parser::FunctionCall *expr, Entry *entry);
 
     void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target);

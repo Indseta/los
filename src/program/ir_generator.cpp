@@ -29,28 +29,24 @@ void IRGenerator::generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &
 }
 
 void IRGenerator::evaluate_global_statement(const Parser::Node *expr) {
-    if (const auto *node = dynamic_cast<const Parser::Entry*>(expr)) {
-        evaluate_entry(node);
+    if (const auto *node = dynamic_cast<const Parser::FunctionDeclaration*>(expr)) {
+        evaluate_function_declaration(node);
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
         success = false;
-        throw std::runtime_error("Unsupported statement encountered.");
+        throw std::runtime_error("Unexpected global statement encountered.");
     }
 }
 
-void IRGenerator::evaluate_entry(const Parser::Entry *expr) {
-    auto entry = std::make_unique<Entry>("main");
+void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaration *expr) {
+    auto entry = std::make_unique<Entry>(expr->identifier);
     add_extern("ExitProcess");
     entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
     entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
     entry.get()->instructions.push_back(std::make_unique<Sub>("rsp", "32"));
-    if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr->statement.get())) {
-        for (const auto &t : node->ast) {
-            evaluate_statement(t.get(), entry.get());
-        }
-    } else {
-        evaluate_statement(expr->statement.get(), entry.get());
-    }
+
+    evaluate_statement(expr->statement.get(), entry.get());
+
     entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
     entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
     text.declarations.push_back(std::move(entry));
@@ -59,10 +55,14 @@ void IRGenerator::evaluate_entry(const Parser::Entry *expr) {
 void IRGenerator::evaluate_statement(const Parser::Node *expr, Entry *entry) {
     if (const auto *node = dynamic_cast<const Parser::FunctionCall*>(expr)) {
         evaluate_function_call(node, entry);
+    } else if (const auto *node = dynamic_cast<const Parser::ScopeDeclaration*>(expr)) {
+        for (const auto &t : node->ast) {
+            evaluate_statement(t.get(), entry);
+        }
     } else if (const auto *node = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
         success = false;
-        throw std::runtime_error("Unsupported statement encountered.");
+        throw std::runtime_error("Unexpected statement encountered.");
     }
 }
 
