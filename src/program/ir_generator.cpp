@@ -46,7 +46,7 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
 
     evaluate_statement(decl->statement.get(), entry.get());
 
-    entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
+    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
     entry.get()->instructions.push_back(std::make_unique<Leave>());
     entry.get()->instructions.push_back(std::make_unique<Ret>());
     text.declarations.push_back(std::move(entry));
@@ -71,28 +71,32 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
 void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry) {
     if (call->identifier == "println") {
         if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(call->args[0].get())) {
-            const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value);
+            push_unique(std::make_unique<Db>(hash, value), data);
             evaluate_expr(operation, entry, "edx");
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
         } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(call->args[0].get())) {
             evaluate_expr(literal, entry, "rcx");
         } else if (const auto *var_call = dynamic_cast<const Parser::VariableCall*>(call->args[0].get())) {
-            const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value);
+            push_unique(std::make_unique<Db>(hash, value), data);
             evaluate_expr(var_call, entry, "edx");
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
         } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(call->args[0].get())) {
         } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(call->args[0].get())) {
-            const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value);
+            push_unique(std::make_unique<Db>(hash, value), data);
             evaluate_expr(literal, entry, "edx");
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
         } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(call->args[0].get())) {
-            const auto id = "data" + get_hash(16);
-            data.declarations.push_back(std::make_unique<Db>(id, "\"%d\""));
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value);
+            push_unique(std::make_unique<Db>(hash, value), data);
             evaluate_expr(operation, entry, "edx");
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + id + "]"));
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
         }
         add_extern("printf");
         entry->instructions.push_back(std::make_unique<Call>("printf"));
@@ -103,8 +107,10 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
 }
 
 void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry) {
-    bss.declarations.push_back(std::make_unique<Resd>(decl->identifier, 1));
-    evaluate_expr(decl->expr.get(), entry, "dword [" + decl->identifier + ']');
+    const auto hash = get_hash(decl->identifier);
+    push_unique(std::make_unique<Resd>(hash, 1), bss);
+    evaluate_expr(decl->expr.get(), entry, "edx");
+    entry->instructions.push_back(std::make_unique<Mov>("dword [" + hash + ']', "edx"));
 }
 
 void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target) {
@@ -113,15 +119,16 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target);
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        entry->instructions.push_back(std::make_unique<Mov>(target, '[' + call->identifier + ']'));
+        entry->instructions.push_back(std::make_unique<Mov>(target, '[' + get_hash(call->identifier) + ']'));
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::FloatLiteral*>(expr)) {
     } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
-        const auto id = "data" + get_hash(16);
-        data.declarations.push_back(std::make_unique<Db>(id, '\"' + literal->value + '\"'));
-        entry->instructions.push_back(std::make_unique<Lea>(target, "[" + id + "]"));
+        const std::string value = '\"' + literal->value + '\"';
+        const auto hash = get_hash(value);
+        push_unique(std::make_unique<Db>(hash, value), data);
+        entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
     } else {
         success = false;
         throw std::runtime_error("Unsupported expression encountered.");
@@ -180,27 +187,30 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
     }
 }
 
+void IRGenerator::push_unique(std::unique_ptr<Declaration> decl, Segment &target) {
+    for (const auto &target_decl : target.declarations) {
+        if (decl->id == target_decl->id) {
+            return;
+        }
+    }
+
+    target.declarations.push_back(std::move(decl));
+}
+
 void IRGenerator::add_extern(const std::string &id) {
     if (std::find(ext_libs.begin(), ext_libs.end(), id) == ext_libs.end()) {
         ext_libs.push_back(id);
     }
 }
 
-std::string IRGenerator::get_hash(const size_t &size) {
-    const char legal_chars[] = "0123456789abcdef";
-
-    std::random_device rd;
-    std::mt19937 generator(rd());
-
-    std::uniform_int_distribution<> distribution(0, sizeof(legal_chars) - 2);
-
-    std::string res;
-
-    for (size_t i = 0; i < size; ++i) {
-        res += legal_chars[distribution(generator)];
+std::string IRGenerator::get_hash(const std::string &src) {
+    unsigned long hash = 5381;
+    for (const auto &c : src) {
+        hash = ((hash << 5) + hash) + c;
     }
-
-    return res;
+    std::stringstream ss;
+    ss << std::hex << hash;
+    return 'd' + ss.str();
 }
 
 const std::vector<std::string>& IRGenerator::get_ext_libs() const {
@@ -260,13 +270,18 @@ void IRGenerator::Statement::log() const {
 
 IRGenerator::Declaration::Declaration() {}
 
+IRGenerator::Declaration::Declaration(const std::string &id) : id(id) {}
+
 void IRGenerator::Declaration::log() const {
-    std::cout << "declaration: (none)" << '\n';
+    std::cout << "declaration: (";
+    std::cout << "id: '";
+    std::cout << id;
+    std::cout << "')" << '\n';
 }
 
 IRGenerator::Db::Db() {}
 
-IRGenerator::Db::Db(const std::string &id, const std::string &value) : id(id), value(value) {}
+IRGenerator::Db::Db(const std::string &id, const std::string &value) : Declaration(id), value(value) {}
 
 void IRGenerator::Db::log() const {
     std::cout << "db: (";
@@ -279,7 +294,7 @@ void IRGenerator::Db::log() const {
 
 IRGenerator::Resb::Resb() {}
 
-IRGenerator::Resb::Resb(const std::string &id, const int &fac) : id(id), fac(fac) {}
+IRGenerator::Resb::Resb(const std::string &id, const int &fac) : Declaration(id), fac(fac) {}
 
 void IRGenerator::Resb::log() const {
     std::cout << "resb: (";
@@ -292,7 +307,7 @@ void IRGenerator::Resb::log() const {
 
 IRGenerator::Resw::Resw() {}
 
-IRGenerator::Resw::Resw(const std::string &id, const int &fac) : id(id), fac(fac) {}
+IRGenerator::Resw::Resw(const std::string &id, const int &fac) : Declaration(id), fac(fac) {}
 
 void IRGenerator::Resw::log() const {
     std::cout << "resw: (";
@@ -305,7 +320,7 @@ void IRGenerator::Resw::log() const {
 
 IRGenerator::Resd::Resd() {}
 
-IRGenerator::Resd::Resd(const std::string &id, const int &fac) : id(id), fac(fac) {}
+IRGenerator::Resd::Resd(const std::string &id, const int &fac) : Declaration(id), fac(fac) {}
 
 void IRGenerator::Resd::log() const {
     std::cout << "resd: (";
@@ -318,7 +333,7 @@ void IRGenerator::Resd::log() const {
 
 IRGenerator::Resq::Resq() {}
 
-IRGenerator::Resq::Resq(const std::string &id, const int &fac) : id(id), fac(fac) {}
+IRGenerator::Resq::Resq(const std::string &id, const int &fac) : Declaration(id), fac(fac) {}
 
 void IRGenerator::Resq::log() const {
     std::cout << "resq: (";

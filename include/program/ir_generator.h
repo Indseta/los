@@ -1,8 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
-#include <random>
+#include <string>
+#include <sstream>
 #include <vector>
 
 #include <program/parser.h>
@@ -15,40 +17,37 @@ public:
     };
     struct Declaration : public Statement {
         Declaration();
+        Declaration(const std::string &id);
+        std::string id;
         virtual void log() const override;
     };
     struct Db : public Declaration {
         Db();
         Db(const std::string &id, const std::string &value);
-        std::string id;
         std::string value;
         virtual void log() const override;
     };
     struct Resb : public Declaration {
         Resb();
         Resb(const std::string &id, const int &fac);
-        std::string id;
         int fac;
         virtual void log() const override;
     };
     struct Resw : public Declaration {
         Resw();
         Resw(const std::string &id, const int &fac);
-        std::string id;
         int fac;
         virtual void log() const override;
     };
     struct Resd : public Declaration {
         Resd();
         Resd(const std::string &id, const int &fac);
-        std::string id;
         int fac;
         virtual void log() const override;
     };
     struct Resq : public Declaration {
         Resq();
         Resq(const std::string &id, const int &fac);
-        std::string id;
         int fac;
         virtual void log() const override;
     };
@@ -155,8 +154,10 @@ private:
     void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target);
     void evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target);
 
+    void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
-    std::string get_hash(const size_t &size);
+
+    std::string get_hash(const std::string &src);
 
     std::vector<std::string> ext_libs;
     Segment data;
