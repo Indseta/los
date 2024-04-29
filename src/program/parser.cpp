@@ -39,8 +39,8 @@ const Lexer::Token& Parser::advance() {
     return previous();
 }
 
-bool Parser::match(const std::initializer_list<std::string> &types) {
-    for (const std::string &type : types) {
+bool Parser::match(const std::initializer_list<std::string> &values) {
+    for (const std::string &type : values) {
         if (peek().value == type) {
             advance();
             return true;
@@ -49,8 +49,8 @@ bool Parser::match(const std::initializer_list<std::string> &types) {
     return false;
 }
 
-bool Parser::match_next(const std::initializer_list<std::string> &types) {
-    for (const std::string &type : types) {
+bool Parser::match_next(const std::initializer_list<std::string> &values) {
+    for (const std::string &type : values) {
         if (next().value == type) {
             return true;
         }
@@ -65,8 +65,8 @@ bool Parser::match_key() {
     }
 
     if (peek().category == Lexer::KEYWORD) {
-        for (const auto &type : {"u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f8", "f16", "f32", "f64", "bool", "string", "ptr", "ref"}) {
-            if (peek().value == type) {
+        for (const auto &value : {"u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f8", "f16", "f32", "f64", "bool", "string", "ptr", "ref"}) {
+            if (peek().value == value) {
                 advance();
                 return true;
             }
@@ -311,10 +311,10 @@ std::unique_ptr<Parser::Node> Parser::primary() {
         return std::make_unique<StringLiteral>(advance().value);
     } else if (peek().category == Lexer::IDENTIFIER) {
         if (next().value == "(") {
-            auto res = std::make_unique<FunctionCall>(advance().value);
+            auto function = std::make_unique<FunctionCall>(advance().value);
             consume("(", "Expected '('");
             consume(")", "Expected ')'");
-            return res;
+            return function;
         } else {
             return std::make_unique<VariableCall>(advance().value);
         }

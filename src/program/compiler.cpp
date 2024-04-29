@@ -63,6 +63,22 @@ void Compiler::compile(const IRGenerator &ir_generator) {
         }
     }
     file_stream << '\n';
+    file_stream << "segment .bss" << '\n';
+    for (const auto &declaration : ir_generator.get_bss().declarations) {
+        if (const auto *resb = dynamic_cast<const IRGenerator::Resb*>(declaration.get())) {
+            file_stream << '\t' << resb->id << " resb " << ' ' << resb->fac << '\n';
+        }
+        if (const auto *resw = dynamic_cast<const IRGenerator::Resw*>(declaration.get())) {
+            file_stream << '\t' << resw->id << " resw " << ' ' << resw->fac << '\n';
+        }
+        if (const auto *resd = dynamic_cast<const IRGenerator::Resd*>(declaration.get())) {
+            file_stream << '\t' << resd->id << " resd " << ' ' << resd->fac << '\n';
+        }
+        if (const auto *resq = dynamic_cast<const IRGenerator::Resq*>(declaration.get())) {
+            file_stream << '\t' << resq->id << " resq " << ' ' << resq->fac << '\n';
+        }
+    }
+    file_stream << '\n';
     file_stream << "segment .text" << '\n';
     for (const auto &d : ir_generator.get_text().declarations) {
         if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
@@ -90,6 +106,10 @@ void Compiler::compile(const IRGenerator &ir_generator) {
                     file_stream << '\t' << "sub " << sub_instr->dst << ", " << sub_instr->src << '\n';
                 } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction.get())) {
                     file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
+                } else if (const auto *leave_instr = dynamic_cast<const IRGenerator::Leave*>(instruction.get())) {
+                    file_stream << '\t' << "leave" << '\n';
+                } else if (const auto *ret_instr = dynamic_cast<const IRGenerator::Ret*>(instruction.get())) {
+                    file_stream << '\t' << "ret" << '\n';
                 } else if (const auto *call_instr = dynamic_cast<const IRGenerator::Call*>(instruction.get())) {
                     file_stream << '\t' << "call " << call_instr->id << '\n';
                 }

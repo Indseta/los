@@ -79,13 +79,13 @@ public:
     };  
 
     struct VariableDeclaration : public Node {
-        VariableDeclaration(const std::string &op, const std::string &identifier, std::unique_ptr<Node> expr) : op(std::move(op)), identifier(std::move(identifier)), expr(std::move(expr)) {}
+        VariableDeclaration(const std::string &type, const std::string &identifier, std::unique_ptr<Node> expr) : type(std::move(type)), identifier(std::move(identifier)), expr(std::move(expr)) {}
         void log() const override {
-            std::cout << "VariableDeclaration: (op: '" << op << "', identifier: '" << identifier << "', expr: (";
+            std::cout << "VariableDeclaration: (type: '" << type << "', identifier: '" << identifier << "', expr: (";
             expr->log();
             std::cout << "))";
         }
-        std::string op;
+        std::string type;
         std::string identifier;
         std::unique_ptr<Node> expr;
     };
@@ -227,8 +227,8 @@ private:
     const Lexer::Token& advance();
     const Lexer::Token& consume(const std::string& type, const std::string& message);
 
-    bool match(const std::initializer_list<std::string> &types);
-    bool match_next(const std::initializer_list<std::string> &types);
+    bool match(const std::initializer_list<std::string> &values);
+    bool match_next(const std::initializer_list<std::string> &values);
     bool match_key();
 
     std::unique_ptr<Node> global_statement();

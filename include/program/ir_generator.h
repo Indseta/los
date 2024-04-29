@@ -24,6 +24,34 @@ public:
         std::string value;
         virtual void log() const override;
     };
+    struct Resb : public Declaration {
+        Resb();
+        Resb(const std::string &id, const int &fac);
+        std::string id;
+        int fac;
+        virtual void log() const override;
+    };
+    struct Resw : public Declaration {
+        Resw();
+        Resw(const std::string &id, const int &fac);
+        std::string id;
+        int fac;
+        virtual void log() const override;
+    };
+    struct Resd : public Declaration {
+        Resd();
+        Resd(const std::string &id, const int &fac);
+        std::string id;
+        int fac;
+        virtual void log() const override;
+    };
+    struct Resq : public Declaration {
+        Resq();
+        Resq(const std::string &id, const int &fac);
+        std::string id;
+        int fac;
+        virtual void log() const override;
+    };
     struct Segment : public Statement {
         Segment();
         std::vector<std::unique_ptr<Declaration>> declarations;
@@ -88,6 +116,14 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Leave : public Instruction {
+        Leave();
+        void log() const override;
+    };
+    struct Ret : public Instruction {
+        Ret();
+        void log() const override;
+    };
     struct Call : public Instruction {
         Call();
         Call(const std::string &id);
@@ -108,18 +144,19 @@ public:
 private:
     void generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
-    void evaluate_global_statement(const Parser::Node *expr);
-    void evaluate_function_declaration(const Parser::FunctionDeclaration *expr);
+    void evaluate_global_statement(const Parser::Node *statement);
+    void evaluate_function_declaration(const Parser::FunctionDeclaration *decl);
 
-    void evaluate_statement(const Parser::Node *expr, Entry *entry);
-    void evaluate_function_call(const Parser::FunctionCall *expr, Entry *entry);
+    void evaluate_statement(const Parser::Node *statement, Entry *entry);
+    void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry);
+    void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry);
 
     void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target);
-    void evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target);
-    void evaluate_binary_operation(const Parser::BinaryOperation *expr, Entry *entry, const std::string &target);
+    void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target);
+    void evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target);
 
     void add_extern(const std::string &id);
-    std::string get_hash(const size_t &length);
+    std::string get_hash(const size_t &size);
 
     std::vector<std::string> ext_libs;
     Segment data;
