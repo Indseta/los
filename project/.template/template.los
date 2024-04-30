@@ -2,8 +2,8 @@
 use vector; // vector, range
 
 
-void log_vector(ref<vector<int32>> target) {
-	int32 product = 1;
+void log_vector(ref<vector<i32>> target) {
+	i32 product = 1;
     for (i in target) {
         product *= i;
         sum++;
@@ -22,10 +22,10 @@ void main() {
 	*/
 
     bool b = true;
-    uint8 u = 128;
-    float32 z = 25 / 4; // always float division
+    u8 u = 128;
+    f32 z = 25 / 4; // always float division
 
-    int32 product, sum;
+    i32 product, sum;
     product = 1;
     sum = 0;
 
@@ -37,7 +37,7 @@ void main() {
     System.println("Sum: " + sum as string);
     System.println(f"Product: ${product}");
 
-    vector<int32> numbers = {0, 10, 26, 2};
+    vector<i32> numbers = {0, 10, 26, 2};
     numbers.push_back(27);
     log_vector(numbers);
 
