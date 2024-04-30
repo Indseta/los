@@ -24,8 +24,9 @@ public:
     };
     struct Db : public Declaration {
         Db();
-        Db(const std::string &id, const std::string &value);
+        Db(const std::string &id, const std::string &value, const std::string &terminator);
         std::string value;
+        std::string terminator;
         virtual void log() const override;
     };
     struct Resb : public Declaration {

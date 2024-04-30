@@ -59,7 +59,7 @@ void Compiler::compile(const IRGenerator &ir_generator) {
     file_stream << "segment .data" << '\n';
     for (const auto &declaration : ir_generator.get_data().declarations) {
         if (const auto *db = dynamic_cast<const IRGenerator::Db*>(declaration.get())) {
-            file_stream << '\t' << db->id << " db " << db->value << ", 0xd, 0xa, 0" << '\n';
+            file_stream << '\t' << db->id << " db " << db->value << ", " << db->terminator << '\n';
         }
     }
     file_stream << '\n';
