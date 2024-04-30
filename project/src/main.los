@@ -1,5 +1,7 @@
 void main() {
     println("Hello world");
-    i32 i = 100;
-    println(i * 2 + 2 / 2); // 201
+    int32 num1 = 100;
+    println("expr res: ", num1 * 2 + 2 / 2); // 201
+    uint32 num2 = -1;
+    println("uint32 max: ", num2);
 }

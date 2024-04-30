@@ -65,7 +65,7 @@ bool Parser::match_key() {
     }
 
     if (peek().category == Lexer::KEYWORD) {
-        for (const auto &value : {"u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f8", "f16", "f32", "f64", "bool", "string", "ptr", "ref"}) {
+        for (const auto &value : {"uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32", "int64", "float8", "float16", "float32", "float64", "bool", "string", "ptr", "ref"}) {
             if (peek().value == value) {
                 advance();
                 return true;

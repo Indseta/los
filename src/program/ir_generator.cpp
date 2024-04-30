@@ -29,9 +29,10 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
 
     evaluate_statement(decl->statement.get(), entry.get());
 
-    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
-    entry.get()->instructions.push_back(std::make_unique<Leave>());
-    entry.get()->instructions.push_back(std::make_unique<Ret>());
+    add_extern("ExitProcess");
+    entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
+    entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
+
     text.declarations.push_back(std::move(entry));
 }
 
@@ -58,11 +59,10 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
             std::string value;
 
             if (const auto *var_call = dynamic_cast<const Parser::VariableCall*>(arg.get())) {
-                value = match_type(var_call->identifier, {"u8", "u16", "u32", "u64"}) ? "\"%u\"" : "\"%d\"";
+                value = match_type(var_call->identifier, {"uint8", "uint16", "uint32", "uint64"}) ? "\"%u\"" : "\"%d\"";
                 evaluate_expr(var_call, entry, "edx");
             } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(arg.get())) {
                 value = '\"' + literal->value + '\"';
-                evaluate_expr(literal, entry, "rcx");
             } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(arg.get())) {
                 value = "\"%d\"";
                 evaluate_expr(literal, entry, "edx");
