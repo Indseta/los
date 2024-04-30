@@ -17,8 +17,9 @@ public:
     };
     struct Declaration : public Statement {
         Declaration();
-        Declaration(const std::string &id);
+        Declaration(const std::string &id, const std::string &type);
         std::string id;
+        std::string type;
         virtual void log() const override;
     };
     struct Db : public Declaration {
@@ -29,25 +30,25 @@ public:
     };
     struct Resb : public Declaration {
         Resb();
-        Resb(const std::string &id, const int &fac);
+        Resb(const std::string &id, const int &fac, const std::string &type);
         int fac;
         virtual void log() const override;
     };
     struct Resw : public Declaration {
         Resw();
-        Resw(const std::string &id, const int &fac);
+        Resw(const std::string &id, const int &fac, const std::string &type);
         int fac;
         virtual void log() const override;
     };
     struct Resd : public Declaration {
         Resd();
-        Resd(const std::string &id, const int &fac);
+        Resd(const std::string &id, const int &fac, const std::string &type);
         int fac;
         virtual void log() const override;
     };
     struct Resq : public Declaration {
         Resq();
-        Resq(const std::string &id, const int &fac);
+        Resq(const std::string &id, const int &fac, const std::string &type);
         int fac;
         virtual void log() const override;
     };
@@ -157,7 +158,8 @@ private:
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
 
-    std::string get_hash(const std::string &src);
+    const std::string get_hash(const std::string &src, const std::string &prefix = "d") const;
+    const bool match_type(const std::string &id, const std::initializer_list<std::string> &types) const;
 
     std::vector<std::string> ext_libs;
     Segment data;

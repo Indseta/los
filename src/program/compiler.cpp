@@ -66,16 +66,16 @@ void Compiler::compile(const IRGenerator &ir_generator) {
     file_stream << "segment .bss" << '\n';
     for (const auto &declaration : ir_generator.get_bss().declarations) {
         if (const auto *resb = dynamic_cast<const IRGenerator::Resb*>(declaration.get())) {
-            file_stream << '\t' << resb->id << " resb " << ' ' << resb->fac << '\n';
+            file_stream << '\t' << resb->id << " resb " << resb->fac << '\n';
         }
         if (const auto *resw = dynamic_cast<const IRGenerator::Resw*>(declaration.get())) {
-            file_stream << '\t' << resw->id << " resw " << ' ' << resw->fac << '\n';
+            file_stream << '\t' << resw->id << " resw " << resw->fac << '\n';
         }
         if (const auto *resd = dynamic_cast<const IRGenerator::Resd*>(declaration.get())) {
-            file_stream << '\t' << resd->id << " resd " << ' ' << resd->fac << '\n';
+            file_stream << '\t' << resd->id << " resd " << resd->fac << '\n';
         }
         if (const auto *resq = dynamic_cast<const IRGenerator::Resq*>(declaration.get())) {
-            file_stream << '\t' << resq->id << " resq " << ' ' << resq->fac << '\n';
+            file_stream << '\t' << resq->id << " resq " << resq->fac << '\n';
         }
     }
     file_stream << '\n';

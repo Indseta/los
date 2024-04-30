@@ -1,6 +1,6 @@
 void main() {
     println("Hello world");
-    i32 num = 102 + 23;
+    i32 num = 100 + 25 * 2;
     println(num);
     // println(25 + 10 / 2); // correct, should be 30, is 30
     // println(25 + 10 * 2); // correct, should be 45, is 45
