@@ -19,10 +19,7 @@ const std::vector<std::string> Lexer::keywords = {
     "ptr",
     "ref",
 
-    "as",
-    "void",
-    "static",
-    "const",
+    "use",
     "if",
     "else",
     "for",
@@ -30,6 +27,11 @@ const std::vector<std::string> Lexer::keywords = {
     "return",
     "break",
     "continue",
+
+    "void",
+    "static",
+    "const",
+    "as",
 };
 
 const std::vector<std::string> Lexer::operators = {

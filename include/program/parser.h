@@ -16,7 +16,7 @@ public:
 
     struct BinaryOperation : public Node {
         BinaryOperation() {}
-        BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
+        BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)), is_signed(true) {}
         void log() const override {
             std::cout << "BinaryOperation: (left: (";
             left->log();
@@ -27,10 +27,23 @@ public:
         std::unique_ptr<Node> left;
         std::string op;
         std::unique_ptr<Node> right;
+        bool is_signed;
+    };
+
+    struct CastOperation : public Node {
+        CastOperation() {}
+        CastOperation(std::unique_ptr<Node> left, const std::string &right) : left(std::move(left)), right(right) {}
+        void log() const override {
+            std::cout << "CastOperation: (left: (";
+            left->log();
+            std::cout << "), right: '" << right << "')";
+        }
+        std::unique_ptr<Node> left;
+        std::string right;
     };
 
     struct UnaryOperation : public Node {
-        UnaryOperation(const std::string &op, std::unique_ptr<Node> value) : op(std::move(op)), value(std::move(value)) {}
+        UnaryOperation(const std::string &op, std::unique_ptr<Node> value) : op(std::move(op)), value(std::move(value)), is_signed(true) {}
         void log() const override {
             std::cout << "UnaryOperation: (op: '" << op << "', value: (";
             value->log();
@@ -38,14 +51,16 @@ public:
         }
         std::string op;
         std::unique_ptr<Node> value;
+        bool is_signed;
     };
 
     struct IntegerLiteral : public Node {
-        IntegerLiteral(const int &value) : value(std::move(value)) {}
+        IntegerLiteral(const int &value) : value(std::move(value)), is_signed(true) {}
         void log() const override {
-            std::cout << "IntegerLiteral: '" << value << "'";
+            std::cout << "IntegerLiteral: '" << value << "', '" << (is_signed ? "signed" : "unsigned") << "'";
         }
         int value;
+        bool is_signed;
     };
 
     struct FloatLiteral : public Node {
@@ -76,7 +91,7 @@ public:
             std::cout << "StringLiteral: '" << value << "'";
         }
         std::string value;
-    };  
+    };
 
     struct VariableDeclaration : public Node {
         VariableDeclaration(const std::string &type, const std::string &identifier, std::unique_ptr<Node> expr) : type(std::move(type)), identifier(std::move(identifier)), expr(std::move(expr)) {}
@@ -102,11 +117,12 @@ public:
     };
 
     struct VariableCall : public Node {
-        VariableCall(const std::string &identifier) : identifier(std::move(identifier)) {}
+        VariableCall(const std::string &identifier) : identifier(std::move(identifier)), is_signed(true) {}
         void log() const override {
             std::cout << "VariableCall: '" << identifier << "'";
         }
         std::string identifier;
+        bool is_signed;
     };
 
     struct FunctionDeclaration : public Node {
@@ -248,6 +264,7 @@ private:
     std::unique_ptr<Node> term();
     std::unique_ptr<Node> factor();
     std::unique_ptr<Node> remainder();
+    std::unique_ptr<Node> cast();
     std::unique_ptr<Node> unary();
     std::unique_ptr<Node> primary();
 

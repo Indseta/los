@@ -279,12 +279,22 @@ std::unique_ptr<Parser::Node> Parser::factor() {
 }
 
 std::unique_ptr<Parser::Node> Parser::remainder() {
-    auto expr = unary();
+    auto expr = cast();
 
     while (match({"%"})) {
         std::string op = previous().value;
-        auto right = unary();
+        auto right = cast();
         expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Parser::Node> Parser::cast() {
+    auto expr = unary();
+
+    while (match({"as"})) {
+        expr = std::make_unique<CastOperation>(std::move(expr), advance().value);
     }
 
     return expr;

@@ -64,11 +64,18 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
             } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(arg.get())) {
                 value = '\"' + literal->value + '\"';
             } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(arg.get())) {
-                value = "\"%d\"";
+                value = literal->is_signed ? "\"%d\"" : "\"%u\"";
                 evaluate_expr(literal, entry, "edx");
             } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(arg.get())) {
                 value = "\"%d\"";
                 evaluate_expr(operation, entry, "edx");
+            } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(arg.get())) {
+                if (operation->right == "u8" || operation->right == "u16" || operation->right == "u32" || operation->right == "u64") {
+                    value = "\"%u\"";
+                } else if (operation->right == "i8" || operation->right == "i16" || operation->right == "i32" || operation->right == "i64") {
+                    value = "\"%d\"";
+                }
+                evaluate_expr(operation->left.get(), entry, "edx");
             } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(arg.get())) {
                 value = "\"%d\"";
                 evaluate_expr(operation, entry, "edx");
