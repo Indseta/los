@@ -16,7 +16,7 @@ public:
 
     struct BinaryOperation : public Node {
         BinaryOperation() {}
-        BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)), is_signed(true) {}
+        BinaryOperation(std::unique_ptr<Node> left, const std::string &op, std::unique_ptr<Node> right) : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
         void log() const override {
             std::cout << "BinaryOperation: (left: (";
             left->log();
@@ -27,7 +27,6 @@ public:
         std::unique_ptr<Node> left;
         std::string op;
         std::unique_ptr<Node> right;
-        bool is_signed;
     };
 
     struct CastOperation : public Node {
@@ -43,7 +42,7 @@ public:
     };
 
     struct UnaryOperation : public Node {
-        UnaryOperation(const std::string &op, std::unique_ptr<Node> value) : op(std::move(op)), value(std::move(value)), is_signed(true) {}
+        UnaryOperation(const std::string &op, std::unique_ptr<Node> value) : op(std::move(op)), value(std::move(value)) {}
         void log() const override {
             std::cout << "UnaryOperation: (op: '" << op << "', value: (";
             value->log();
@@ -51,16 +50,14 @@ public:
         }
         std::string op;
         std::unique_ptr<Node> value;
-        bool is_signed;
     };
 
     struct IntegerLiteral : public Node {
-        IntegerLiteral(const int &value) : value(std::move(value)), is_signed(true) {}
+        IntegerLiteral(const int &value) : value(std::move(value)) {}
         void log() const override {
-            std::cout << "IntegerLiteral: '" << value << "', '" << (is_signed ? "signed" : "unsigned") << "'";
+            std::cout << "IntegerLiteral: '" << value << "'";
         }
         int value;
-        bool is_signed;
     };
 
     struct FloatLiteral : public Node {
@@ -117,12 +114,11 @@ public:
     };
 
     struct VariableCall : public Node {
-        VariableCall(const std::string &identifier) : identifier(std::move(identifier)), is_signed(true) {}
+        VariableCall(const std::string &identifier) : identifier(std::move(identifier)) {}
         void log() const override {
             std::cout << "VariableCall: '" << identifier << "'";
         }
         std::string identifier;
-        bool is_signed;
     };
 
     struct FunctionDeclaration : public Node {

@@ -55,38 +55,17 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
 void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry) {
     if (call->identifier == "println") {
         for (int i = 0; i < call->args.size(); ++i) {
-            const auto &arg = call->args[i];
-            std::string value;
-
-            if (const auto *var_call = dynamic_cast<const Parser::VariableCall*>(arg.get())) {
-                value = match_type(var_call->identifier, {"u8", "u16", "u32", "u64"}) ? "\"%u\"" : "\"%d\"";
-                evaluate_expr(var_call, entry, "edx");
-            } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(arg.get())) {
-                value = '\"' + literal->value + '\"';
-            } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(arg.get())) {
-                value = literal->is_signed ? "\"%d\"" : "\"%u\"";
-                evaluate_expr(literal, entry, "edx");
-            } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(arg.get())) {
-                value = "\"%d\"";
-                evaluate_expr(operation, entry, "edx");
-            } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(arg.get())) {
-                if (operation->right == "u8" || operation->right == "u16" || operation->right == "u32" || operation->right == "u64") {
-                    value = "\"%u\"";
-                } else if (operation->right == "i8" || operation->right == "i16" || operation->right == "i32" || operation->right == "i64") {
-                    value = "\"%d\"";
-                }
-                evaluate_expr(operation->left.get(), entry, "edx");
-            } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(arg.get())) {
-                value = "\"%d\"";
-                evaluate_expr(operation, entry, "edx");
-            }
-
-            const std::string terminator = i == call->args.size() - 1 ? "0xd, 0xa, 0" : "0";
-            const auto hash = get_hash(value + terminator, "c");
-            push_unique(std::make_unique<Db>(hash, value, terminator), data);
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
+            evaluate_expr(call->args[i].get(), entry, "rcx");
 
             add_extern("printf");
+            entry->instructions.push_back(std::make_unique<Call>("printf"));
+
+            const std::string value = "0xd, 0xa";
+            const std::string terminator = "0";
+            const auto hash = get_hash(value + terminator, "c");
+            push_unique(std::make_unique<Db>(hash, value, terminator), data);
+
+            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
             entry->instructions.push_back(std::make_unique<Call>("printf"));
         }
     } else {
@@ -96,10 +75,10 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
 }
 
 void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry) {
-    const auto hash = get_hash(decl->identifier);
-    push_unique(std::make_unique<Resd>(hash, 1, decl->type), bss);
+    const auto id = "static_" + decl->identifier;
+    push_unique(std::make_unique<Resd>(id, 1, decl->type), bss);
     evaluate_expr(decl->expr.get(), entry, "edx");
-    entry->instructions.push_back(std::make_unique<Mov>("dword [" + hash + ']', "edx"));
+    entry->instructions.push_back(std::make_unique<Mov>("dword [" + id + ']', "edx"));
 }
 
 void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target) {
@@ -107,14 +86,26 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         evaluate_unary_operation(operation, entry, target);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target);
+    } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
+        const std::string type = '\"' + operation->right + '\"';
+        if (type == "string") {
+            evaluate_expr(operation->left.get(), entry, "edx");
+
+            const std::string terminator = "0";
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value + terminator, "c");
+            push_unique(std::make_unique<Db>(hash, value, terminator), data);
+            entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+        }
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        entry->instructions.push_back(std::make_unique<Mov>(target, '[' + get_hash(call->identifier) + ']'));
+        entry->instructions.push_back(std::make_unique<Mov>(target, "[static_" + call->identifier + ']'));
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
         const std::string value = '\"' + literal->value + '\"';
-        const auto hash = get_hash(value, "c");
-        push_unique(std::make_unique<Db>(hash, value, "0xd, 0xa, 0"), data);
+        const std::string terminator = "0";
+        const auto hash = get_hash(value + terminator, "c");
+        push_unique(std::make_unique<Db>(hash, value, terminator), data);
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
     } else {
         throw std::runtime_error("Unsupported expression encountered.");

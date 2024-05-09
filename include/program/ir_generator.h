@@ -9,6 +9,27 @@
 
 #include <program/parser.h>
 
+enum IntegralType {
+    UINT,
+    INT,
+    FLOAT,
+    BOOL,
+    STRING,
+};
+
+struct TypeInfo {
+    std::string name;
+    IntegralType type;
+    int size;
+};
+
+struct StackInfo {
+    std::unordered_map<std::string, int> keys;
+
+    int get(const std::string &id);
+    void push(const std::string &id, const int &offset);
+};
+
 class IRGenerator {
 public:
     struct Statement {

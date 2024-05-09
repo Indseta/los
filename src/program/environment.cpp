@@ -56,7 +56,7 @@ void Environment::run(const std::string &fp) {
     std::cout << std::fixed;
     std::cout << "[Done] Program compiled in " << elapsed.count() / 1000.0 << " seconds" << '\n';
     std::cout << '\n';
-    std::cout << " -- Compile result -- " << '\n';
+    std::cout << " -- Compile result -- " << '\n';  
 #endif
     compiler.run();
 }
