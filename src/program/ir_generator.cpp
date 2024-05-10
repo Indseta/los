@@ -22,7 +22,15 @@ void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
 }
 
 void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaration *decl) {
-    auto entry = std::make_unique<Entry>(decl->identifier);
+    std::string identifier = decl->identifier;
+    if (identifier != "main") {
+        for (size_t i = 0; i < decl->args_ids.size(); ++i) {
+            identifier += decl->args_types[i];
+        }
+        identifier = get_hash(identifier, "f");
+    }
+
+    auto entry = std::make_unique<Entry>(identifier);
     entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
     entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
     entry.get()->instructions.push_back(std::make_unique<Sub>("rsp", "32"));
@@ -30,9 +38,16 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
     evaluate_statement(decl->statement.get(), entry.get());
 
     add_extern("ExitProcess");
-    entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
-    entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
+    if (identifier == "main") {
+        entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
+        entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
+    } else {
+        entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+        entry.get()->instructions.push_back(std::make_unique<Leave>());
+        entry.get()->instructions.push_back(std::make_unique<Ret>());
+    }
 
+    std::cout << "Generating Entry with identifier: [" << entry->id << "]\n";
     text.declarations.push_back(std::move(entry));
 }
 
@@ -55,7 +70,9 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
 void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry) {
     if (call->identifier == "println") {
         for (int i = 0; i < call->args.size(); ++i) {
-            evaluate_expr(call->args[i].get(), entry, "rcx");
+            const auto &arg = call->args[i];
+
+            evaluate_expr(arg.get(), entry, "rcx");
 
             add_extern("printf");
             entry->instructions.push_back(std::make_unique<Call>("printf"));
@@ -69,8 +86,14 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
             entry->instructions.push_back(std::make_unique<Call>("printf"));
         }
     } else {
-        success = false;
-        throw std::runtime_error("Function signature: \"" + call->identifier + "\" with " + std::to_string(call->args.size()) + " args not defined");
+        std::string identifier = call->identifier;
+        for (const auto &arg : call->args) {
+            auto type_info = get_type_info(arg.get());
+            identifier += type_info.name;
+        }
+        identifier = get_hash(identifier, "f");
+
+        entry->instructions.push_back(std::make_unique<Call>(identifier));
     }
 }
 
@@ -87,7 +110,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target);
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
-        const std::string type = '\"' + operation->right + '\"';
+        const std::string type = operation->right;
         if (type == "string") {
             evaluate_expr(operation->left.get(), entry, "edx");
 
@@ -175,6 +198,26 @@ void IRGenerator::add_extern(const std::string &id) {
     if (std::find(ext_libs.begin(), ext_libs.end(), id) == ext_libs.end()) {
         ext_libs.push_back(id);
     }
+}
+
+const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr) {
+    TypeInfo type_info;
+    if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
+        type_info.name = "i32";
+        type_info.type = IntegralType::INT;
+        type_info.size = 4;
+    } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
+        type_info.name = "string";
+        type_info.type = IntegralType::STRING;
+        type_info.size = 24;
+    } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
+    } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
+    } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
+    } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
+    } else {
+        throw std::runtime_error("Could not deduce type of unknown expression.");
+    }
+    return type_info;
 }
 
 const std::string IRGenerator::get_hash(const std::string &src, const std::string &prefix) const {

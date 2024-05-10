@@ -9,29 +9,29 @@
 
 #include <program/parser.h>
 
-enum IntegralType {
-    UINT,
-    INT,
-    FLOAT,
-    BOOL,
-    STRING,
-};
-
-struct TypeInfo {
-    std::string name;
-    IntegralType type;
-    int size;
-};
-
-struct StackInfo {
-    std::unordered_map<std::string, int> keys;
-
-    int get(const std::string &id);
-    void push(const std::string &id, const int &offset);
-};
-
 class IRGenerator {
 public:
+    enum IntegralType {
+        UINT,
+        INT,
+        FLOAT,
+        BOOL,
+        STRING,
+    };
+
+    struct TypeInfo {
+        std::string name;
+        IntegralType type;
+        int size;
+    };
+
+    struct StackInfo {
+        std::unordered_map<std::string, int> keys;
+
+        int get(const std::string &id);
+        void push(const std::string &id, const int &offset);
+    };
+
     struct Statement {
         Statement();
         virtual void log() const;
@@ -180,9 +180,11 @@ private:
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
 
+    const TypeInfo get_type_info(const Parser::Node *expr);
     const std::string get_hash(const std::string &src, const std::string &prefix = "d") const;
     const bool match_type(const std::string &id, const std::initializer_list<std::string> &types) const;
 
+    std::unordered_map<std::string, Parser::FunctionDeclaration*> functions;
     std::vector<std::string> ext_libs;
     Segment data;
     Segment bss;

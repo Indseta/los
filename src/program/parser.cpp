@@ -138,7 +138,8 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
     }
     consume("(", "Expected '('");
     while (peek().value != ")") {
-        function->params.push_back(advance().value); // Check if keyword
+        function->args_types.push_back(advance().value);
+        function->args_ids.push_back(advance().value);
         if (peek().value != ")") {
             consume(",", "Expected ','");
         }
@@ -243,12 +244,22 @@ std::unique_ptr<Parser::Node> Parser::equality() {
 }
 
 std::unique_ptr<Parser::Node> Parser::comparison() {
-    auto expr = term();
+    auto expr = cast();
 
     while (match({"<", "<=", ">", ">="})) {
         std::string op = previous().value;
-        auto right = term();
+        auto right = cast();
         expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Parser::Node> Parser::cast() {
+    auto expr = term();
+
+    while (match({"as"})) {
+        expr = std::make_unique<CastOperation>(std::move(expr), advance().value);
     }
 
     return expr;
@@ -279,22 +290,12 @@ std::unique_ptr<Parser::Node> Parser::factor() {
 }
 
 std::unique_ptr<Parser::Node> Parser::remainder() {
-    auto expr = cast();
+    auto expr = unary();
 
     while (match({"%"})) {
         std::string op = previous().value;
-        auto right = cast();
+        auto right = unary();
         expr = std::make_unique<BinaryOperation>(std::move(expr), op, std::move(right));
-    }
-
-    return expr;
-}
-
-std::unique_ptr<Parser::Node> Parser::cast() {
-    auto expr = unary();
-
-    while (match({"as"})) {
-        expr = std::make_unique<CastOperation>(std::move(expr), advance().value);
     }
 
     return expr;

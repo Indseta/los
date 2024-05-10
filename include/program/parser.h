@@ -3,6 +3,7 @@
 #include <program/lexer.h>
 
 #include <iostream>
+#include <unordered_map>
 #include <memory>
 #include <set>
 #include <vector>
@@ -125,9 +126,9 @@ public:
         FunctionDeclaration() : statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
             std::cout << "FunctionDeclaration: (identifier: '" << identifier << "', args: (";
-            for (size_t i = 0; i < params.size(); ++i) {
-                const bool last = i == params.size() - 1;
-                std::cout << params[i];
+            for (size_t i = 0; i < args_ids.size(); ++i) {
+                const bool last = i == args_ids.size() - 1;
+                std::cout << '(' << args_types[i] << ", " << args_ids[i] << ')';
                 if (!last) {
                     std::cout << ", ";
                 }
@@ -138,7 +139,8 @@ public:
         }
         std::string type;
         std::string identifier;
-        std::vector<std::string> params;
+        std::vector<std::string> args_ids;
+        std::vector<std::string> args_types;
         std::unique_ptr<Node> statement;
     };
 
