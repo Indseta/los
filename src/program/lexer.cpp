@@ -14,9 +14,9 @@ const std::vector<std::string> Lexer::keywords = {
     "continue",
 
     "void",
-    "persistent",
     "static",
-    "const",
+    "final",
+    "persistent",
 
     "as",
 };

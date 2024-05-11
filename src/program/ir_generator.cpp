@@ -24,7 +24,6 @@ void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
 void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaration *decl) {
     std::string identifier = decl->identifier;
     if (identifier != "main") {
-        identifier = decl->type + identifier;
         for (size_t i = 0; i < decl->args_ids.size(); ++i) {
             identifier += decl->args_types[i];
         }
@@ -32,6 +31,7 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
     }
 
     auto entry = std::make_unique<Entry>(identifier);
+    entry->args_ids = decl->args_ids;
     entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
     entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
 
@@ -82,8 +82,12 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
     if (call->identifier == "println") {
         for (int i = 0; i < call->args.size(); ++i) {
             const auto &arg = call->args[i];
-
             evaluate_expr(arg.get(), entry, "rcx", stack_info);
+            // if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(arg.get())) {
+            // } else {
+            //     const auto operation = std::make_unique<Parser::CastOperation>(arg, "string");
+            //     evaluate_expr(operation.get(), entry, "rcx", stack_info);
+            // }
 
             add_extern("printf");
             entry->instructions.push_back(std::make_unique<Call>("printf"));
@@ -98,14 +102,35 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
         entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
         entry->instructions.push_back(std::make_unique<Call>("printf"));
     } else {
-        std::string identifier = "void" + call->identifier;
+        std::string identifier = call->identifier;
         for (const auto &arg : call->args) {
             auto type_info = get_type_info(arg.get());
             identifier += type_info.name;
         }
         identifier = get_hash(identifier, "f");
 
-        entry->instructions.push_back(std::make_unique<Call>(identifier));
+        for (int i = 0; i < text.declarations.size(); ++i) {
+            if (auto *decl = dynamic_cast<Entry*>(text.declarations[i].get())) {
+                std::string other_id = decl->id;
+                if (other_id == identifier) {
+                    entry->instructions.push_back(std::make_unique<Call>(identifier));
+
+                    for (int y = 0; y < decl->args_ids.size(); ++y) {
+                        const auto &arg = decl->args_ids[y];
+                        // decl->instructions.insert(decl->instructions.begin() + 3, std::make_unique<Mov>("rcx", "rcx"));
+                        // evaluate_expr(call->args[y].get(), entry, "edx", stack_info);
+                        // int offset = stack_info.get_offset();
+                        // int size = 4;
+                        // entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset + size) +"]", "edx"));
+                    }
+
+                    return;
+                }
+            }
+        }
+
+        success = false;
+        throw std::runtime_error("Function not declared or inaccessible: '" + call->identifier + "'");
     }
 }
 
@@ -120,7 +145,7 @@ void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaratio
         stack_info.push(decl->identifier, size);
     } else {
         success = false;
-        throw std::runtime_error("Variable already declared: '" + decl->identifier + "'");
+        throw std::runtime_error("Variable not declared or inaccessible: '" + decl->identifier + "'");
     }
 }
 
@@ -130,15 +155,30 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
-        const std::string type = operation->right;
-        if (type == "string") {
-            evaluate_expr(operation->left.get(), entry, "edx", stack_info);
+        const auto type_info = get_type_info(operation->left.get());
+        const std::string cast_type = operation->right;
+        if (cast_type == "string") {
+            if (type_info.type == IntegralType::STRING) {
+                evaluate_expr(operation->left.get(), entry, target, stack_info);
+            } else if (type_info.type == IntegralType::INT) {
+                evaluate_expr(operation->left.get(), entry, "edx", stack_info);
 
-            const std::string terminator = "0";
-            const std::string value = "\"%d\"";
-            const auto hash = get_hash(value + terminator, "c");
-            push_unique(std::make_unique<Db>(hash, value, terminator), data);
-            entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+                const std::string terminator = "0";
+
+                const std::string value = "\"%d\"";
+                const auto hash = get_hash(value + terminator, "c");
+                push_unique(std::make_unique<Db>(hash, value, terminator), data);
+                entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+            } else if (type_info.type == IntegralType::UINT) {
+                evaluate_expr(operation->left.get(), entry, "edx", stack_info);
+
+                const std::string terminator = "0";
+
+                const std::string value = "\"%u\"";
+                const auto hash = get_hash(value + terminator, "c");
+                push_unique(std::make_unique<Db>(hash, value, terminator), data);
+                entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+            }
         }
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
         if (stack_info.exists(call->identifier)) {
@@ -238,6 +278,9 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr)
         type_info.type = IntegralType::STRING;
         type_info.size = 24;
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
+        type_info.name = "i32";
+        type_info.type = IntegralType::INT;
+        type_info.size = 4;
     } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {

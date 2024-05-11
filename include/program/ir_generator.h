@@ -90,6 +90,7 @@ public:
         Entry();
         Entry(const std::string &id);
         std::string id;
+        std::vector<std::string> args_ids;
         std::vector<std::unique_ptr<Instruction>> instructions;
         virtual void log() const override;
     };
