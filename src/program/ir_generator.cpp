@@ -24,6 +24,7 @@ void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
 void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaration *decl) {
     std::string identifier = decl->identifier;
     if (identifier != "main") {
+        identifier = decl->type + identifier;
         for (size_t i = 0; i < decl->args_ids.size(); ++i) {
             identifier += decl->args_types[i];
         }
@@ -33,33 +34,42 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
     auto entry = std::make_unique<Entry>(identifier);
     entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
     entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
-    entry.get()->instructions.push_back(std::make_unique<Sub>("rsp", "32"));
 
-    evaluate_statement(decl->statement.get(), entry.get());
+    evaluate_wrapper_statement(decl->statement.get(), entry.get());
 
-    add_extern("ExitProcess");
-    if (identifier == "main") {
-        entry.get()->instructions.push_back(std::make_unique<Xor>("rcx", "rcx"));
-        entry.get()->instructions.push_back(std::make_unique<Call>("ExitProcess"));
-    } else {
-        entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
-        entry.get()->instructions.push_back(std::make_unique<Leave>());
-        entry.get()->instructions.push_back(std::make_unique<Ret>());
-    }
+    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+    entry.get()->instructions.push_back(std::make_unique<Leave>());
+    entry.get()->instructions.push_back(std::make_unique<Ret>());
 
-    std::cout << "Generating Entry with identifier: [" << entry->id << "]\n";
     text.declarations.push_back(std::move(entry));
 }
 
-void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry) {
-    if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
-        evaluate_function_call(call, entry);
-    } else if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
+void IRGenerator::evaluate_wrapper_statement(const Parser::Node *statement, Entry *entry) {
+    int stack_size = 32;
+    entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size + 32)));
+    StackInfo stack_info;
+
+    if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
         for (const auto &t : decl->ast) {
-            evaluate_statement(t.get(), entry);
+            evaluate_statement(t.get(), entry, stack_info);
+        }
+    } else {
+        evaluate_statement(statement, entry, stack_info);
+    }
+}
+
+void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info) {
+    if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
+        evaluate_function_call(call, entry, stack_info);
+    } else if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
+        int stack_size = 32;
+        entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size + 32)));
+        StackInfo nested_stack_info = stack_info;
+        for (const auto &t : decl->ast) {
+            evaluate_statement(t.get(), entry, nested_stack_info);
         }
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
-        evaluate_variable_declaration(decl, entry);
+        evaluate_variable_declaration(decl, entry, stack_info);
     } else if (const auto *empty = dynamic_cast<const Parser::EmptyStatement*>(statement)) {
     } else {
         success = false;
@@ -67,26 +77,27 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
     }
 }
 
-void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry) {
+void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, StackInfo &stack_info) {
     if (call->identifier == "println") {
         for (int i = 0; i < call->args.size(); ++i) {
             const auto &arg = call->args[i];
 
-            evaluate_expr(arg.get(), entry, "rcx");
+            evaluate_expr(arg.get(), entry, "rcx", stack_info);
 
             add_extern("printf");
             entry->instructions.push_back(std::make_unique<Call>("printf"));
-
-            const std::string value = "0xd, 0xa";
-            const std::string terminator = "0";
-            const auto hash = get_hash(value + terminator, "c");
-            push_unique(std::make_unique<Db>(hash, value, terminator), data);
-
-            entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
-            entry->instructions.push_back(std::make_unique<Call>("printf"));
         }
+
+        // Newline
+        const std::string value = "0xd, 0xa";
+        const std::string terminator = "0";
+        const auto hash = get_hash(value + terminator, "c");
+        push_unique(std::make_unique<Db>(hash, value, terminator), data);
+
+        entry->instructions.push_back(std::make_unique<Lea>("rcx", "[" + hash + "]"));
+        entry->instructions.push_back(std::make_unique<Call>("printf"));
     } else {
-        std::string identifier = call->identifier;
+        std::string identifier = "void" + call->identifier;
         for (const auto &arg : call->args) {
             auto type_info = get_type_info(arg.get());
             identifier += type_info.name;
@@ -97,22 +108,30 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
     }
 }
 
-void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry) {
-    const auto id = "static_" + decl->identifier;
-    push_unique(std::make_unique<Resd>(id, 1, decl->type), bss);
-    evaluate_expr(decl->expr.get(), entry, "edx");
-    entry->instructions.push_back(std::make_unique<Mov>("dword [" + id + ']', "edx"));
+void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info) {
+    // const auto id = "static_" + decl->identifier;
+    // push_unique(std::make_unique<Resd>(id, 1, decl->type), bss);
+    if (!stack_info.exists(decl->identifier)) {
+        evaluate_expr(decl->expr.get(), entry, "edx", stack_info);
+        int offset = stack_info.get_offset();
+        int size = 4;
+        entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset + size) +"]", "edx"));
+        stack_info.push(decl->identifier, size);
+    } else {
+        success = false;
+        throw std::runtime_error("Variable already declared: '" + decl->identifier + "'");
+    }
 }
 
-void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target) {
+void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target, StackInfo &stack_info) {
     if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
-        evaluate_unary_operation(operation, entry, target);
+        evaluate_unary_operation(operation, entry, target, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
-        evaluate_binary_operation(operation, entry, target);
+        evaluate_binary_operation(operation, entry, target, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
         const std::string type = operation->right;
         if (type == "string") {
-            evaluate_expr(operation->left.get(), entry, "edx");
+            evaluate_expr(operation->left.get(), entry, "edx", stack_info);
 
             const std::string terminator = "0";
             const std::string value = "\"%d\"";
@@ -121,7 +140,12 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
         }
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        entry->instructions.push_back(std::make_unique<Mov>(target, "[static_" + call->identifier + ']'));
+        if (stack_info.exists(call->identifier)) {
+            entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier)) + "]"));
+        } else {
+            success = false;
+            throw std::runtime_error("Variable not declared: '" + call->identifier + "'");
+        }
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
@@ -131,23 +155,24 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         push_unique(std::make_unique<Db>(hash, value, terminator), data);
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
     } else {
+        success = false;
         throw std::runtime_error("Unsupported expression encountered.");
     }
 }
 
-void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target) {
+void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
     std::string left_reg = "eax";
     std::string right_reg = "ebx";
     std::string temp_reg = "ecx";
 
-    evaluate_expr(operation->left.get(), entry, left_reg);
+    evaluate_expr(operation->left.get(), entry, left_reg, stack_info);
 
     if (dynamic_cast<Parser::BinaryOperation*>(operation->right.get())) {
         entry->instructions.push_back(std::make_unique<Mov>(temp_reg, left_reg));
         left_reg = temp_reg;
     }
 
-    evaluate_expr(operation->right.get(), entry, right_reg);
+    evaluate_expr(operation->right.get(), entry, right_reg, stack_info);
 
     if (operation->op == "+") {
         entry->instructions.push_back(std::make_unique<Add>(left_reg, right_reg));
@@ -167,11 +192,12 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
     }
 }
 
-void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target) {
+void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target, StackInfo &stack_info) {
     if (expr->op == "-") {
-        evaluate_expr(expr->value.get(), entry, target);
-        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));
+        evaluate_expr(expr->value.get(), entry, target, stack_info);
+        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));    
     } else {
+        success = false;
         throw std::runtime_error("Unsupported operator: " + expr->op);
     }
 }
@@ -215,6 +241,7 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr)
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
     } else {
+        success = false;
         throw std::runtime_error("Could not deduce type of unknown expression.");
     }
     return type_info;
@@ -241,6 +268,30 @@ const bool IRGenerator::match_type(const std::string &id, const std::initializer
         }
     }
     return false;
+}
+
+bool IRGenerator::StackInfo::exists(const std::string &id) {
+    if (keys.find(id) == keys.end()) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+int IRGenerator::StackInfo::get(const std::string &id) {
+    return keys.at(id);
+}
+
+int IRGenerator::StackInfo::get_offset() {
+    if (keys.size() != 0) {
+        return keys.rbegin()->second;
+    } else {
+        return 0;
+    }
+}
+
+void IRGenerator::StackInfo::push(const std::string &id, const int &size) {
+    keys.insert({id, get_offset() + size});
 }
 
 const std::vector<std::string>& IRGenerator::get_ext_libs() const {

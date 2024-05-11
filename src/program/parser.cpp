@@ -131,6 +131,7 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration() {
 
 std::unique_ptr<Parser::Node> Parser::function_declaration() {
     auto function = std::make_unique<FunctionDeclaration>();
+    function->type = previous().value;
     if (peek().category == Lexer::IDENTIFIER) {
         function->identifier = advance().value;
     } else {

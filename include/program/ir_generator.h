@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -26,10 +27,12 @@ public:
     };
 
     struct StackInfo {
-        std::unordered_map<std::string, int> keys;
+        std::map<std::string, int> keys;
 
+        bool exists(const std::string &id);
         int get(const std::string &id);
-        void push(const std::string &id, const int &offset);
+        int get_offset();
+        void push(const std::string &id, const int &size);
     };
 
     struct Statement {
@@ -169,13 +172,15 @@ private:
     void evaluate_global_statement(const Parser::Node *statement);
     void evaluate_function_declaration(const Parser::FunctionDeclaration *decl);
 
-    void evaluate_statement(const Parser::Node *statement, Entry *entry);
-    void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry);
-    void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry);
+    void evaluate_wrapper_statement(const Parser::Node *statement, Entry *entry);
 
-    void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target);
-    void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target);
-    void evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target);
+    void evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info);
+    void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, StackInfo &stack_info);
+    void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info);
+
+    void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target, StackInfo &stack_info);
+    void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
+    void evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
 
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
