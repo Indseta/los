@@ -68,6 +68,7 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         for (const auto &t : decl->ast) {
             evaluate_statement(t.get(), entry, nested_stack_info);
         }
+        entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(stack_size + 32)));
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
         evaluate_variable_declaration(decl, entry, stack_info);
     } else if (const auto *empty = dynamic_cast<const Parser::EmptyStatement*>(statement)) {
