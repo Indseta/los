@@ -18,21 +18,31 @@ public:
         FLOAT,
         BOOL,
         STRING,
+        UNKNOWN,
     };
 
     struct TypeInfo {
+        TypeInfo();
         std::string name;
         IntegralType type;
         int size;
     };
 
-    struct StackInfo {
-        std::map<std::string, int> keys;
+    struct StackEntry {
+        StackEntry();
+        TypeInfo type;
+        int offset;
+    };
 
+    struct StackInfo {
+        StackInfo();
+        std::map<std::string, StackEntry> keys;
+        int size;
+
+        StackEntry get(const std::string &id);
+        int get_bottom();
         bool exists(const std::string &id);
-        int get(const std::string &id);
-        int get_offset();
-        void push(const std::string &id, const int &size);
+        void push(const std::string &id, const TypeInfo &type);
     };
 
     struct Statement {
@@ -187,9 +197,16 @@ private:
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
 
-    const TypeInfo get_type_info(const Parser::Node *expr);
+    const TypeInfo get_type_info(const std::string &name);
+    const TypeInfo get_type_info(const Parser::Node *expr, StackInfo &stack_info);
     const std::string get_hash(const std::string &src, const std::string &prefix = "d") const;
     const bool match_type(const std::string &id, const std::initializer_list<std::string> &types) const;
+
+    std::string get_registry(const std::string &top_name, const int &size);
+    std::string get_word(const int &size);
+    IntegralType get_integral_type(const std::string &name);
+    int get_data_size(const std::string &name);
+    int align_by(const int &src, const int &size);
 
     std::unordered_map<std::string, Parser::FunctionDeclaration*> functions;
     std::vector<std::string> ext_libs;

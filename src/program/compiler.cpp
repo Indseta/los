@@ -85,7 +85,7 @@ void Compiler::compile(const IRGenerator &ir_generator) {
             file_stream << '\t' << "global " << entry->id << '\n';
         }
     }
-
+    file_stream << '\n';
     for (const auto &d : ir_generator.get_text().declarations) {
         if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
             file_stream << entry->id << ':' << '\n';

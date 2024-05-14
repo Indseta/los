@@ -45,9 +45,8 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
 }
 
 void IRGenerator::evaluate_wrapper_statement(const Parser::Node *statement, Entry *entry) {
-    int stack_size = 32;
-    entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size + 32)));
     StackInfo stack_info;
+    int alloc_at = entry->instructions.size();
 
     if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
         for (const auto &t : decl->ast) {
@@ -56,19 +55,23 @@ void IRGenerator::evaluate_wrapper_statement(const Parser::Node *statement, Entr
     } else {
         evaluate_statement(statement, entry, stack_info);
     }
+
+    stack_info.size = align_by(stack_info.size, 16);
+    entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", std::to_string(stack_info.size + 32)));
 }
 
 void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info) {
     if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
         evaluate_function_call(call, entry, stack_info);
     } else if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
-        int stack_size = 32;
-        entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size)));
         StackInfo nested_stack_info = stack_info;
+        int alloc_at = entry->instructions.size();
         for (const auto &t : decl->ast) {
             evaluate_statement(t.get(), entry, nested_stack_info);
         }
-        entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(stack_size + 32)));
+        nested_stack_info.size = align_by(nested_stack_info.size, 16);
+        entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", std::to_string(nested_stack_info.size)));
+        entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(nested_stack_info.size)));
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
         evaluate_variable_declaration(decl, entry, stack_info);
     } else if (const auto *assign = dynamic_cast<const Parser::VariableAssignment*>(statement)) {
@@ -106,7 +109,7 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
     } else {
         std::string identifier = call->identifier;
         for (const auto &arg : call->args) {
-            auto type_info = get_type_info(arg.get());
+            auto type_info = get_type_info(arg.get(), stack_info);
             identifier += type_info.name;
         }
         identifier = get_hash(identifier, "f");
@@ -140,11 +143,13 @@ void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaratio
     // const auto id = "static_" + decl->identifier;
     // push_unique(std::make_unique<Resd>(id, 1, decl->type), bss);
     if (!stack_info.exists(decl->identifier)) {
-        evaluate_expr(decl->expr.get(), entry, "edx", stack_info);
-        int offset = stack_info.get_offset();
-        int size = 4;
-        entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset + size) +"]", "edx"));
-        stack_info.push(decl->identifier, size);
+        int offset = stack_info.get_bottom();
+        TypeInfo type_info = get_type_info(decl->type);
+        stack_info.size += type_info.size;
+        std::string registry = get_registry("rdx", type_info.size);
+        evaluate_expr(decl->expr.get(), entry, registry, stack_info);
+        entry->instructions.push_back(std::make_unique<Mov>(get_word(type_info.size) + " [rbp - " + std::to_string(offset) +"]", registry));
+        stack_info.push(decl->identifier, type_info);
     } else {
         success = false;
         throw std::runtime_error("Variable already declared: '" + decl->identifier + "'");
@@ -153,9 +158,9 @@ void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaratio
 
 void IRGenerator::evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info) {
     if (stack_info.exists(assign->identifier)) {
-        evaluate_expr(assign->expr.get(), entry, "edx", stack_info);
-        int offset = stack_info.get(assign->identifier);
-        entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset) +"]", "edx"));
+        const auto &res = stack_info.get(assign->identifier);
+        evaluate_expr(assign->expr.get(), entry, get_registry("rdx", res.type.size), stack_info);
+        entry->instructions.push_back(std::make_unique<Mov>(get_word(res.type.size) + " [rbp - " + std::to_string(res.offset) +"]", get_registry("rdx", res.type.size)));
     } else {
         success = false;
         throw std::runtime_error("Variable not declared or inaccessible: '" + assign->identifier + "'");
@@ -168,13 +173,13 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
-        const auto type_info = get_type_info(operation->left.get());
+        const auto type_info = get_type_info(operation->left.get(), stack_info);
         const std::string cast_type = operation->right;
         if (cast_type == "string") {
             if (type_info.type == IntegralType::STRING) {
                 evaluate_expr(operation->left.get(), entry, target, stack_info);
             } else if (type_info.type == IntegralType::INT) {
-                evaluate_expr(operation->left.get(), entry, "edx", stack_info);
+                evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
 
                 const std::string terminator = "0";
 
@@ -183,7 +188,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
                 push_unique(std::make_unique<Db>(hash, value, terminator), data);
                 entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
             } else if (type_info.type == IntegralType::UINT) {
-                evaluate_expr(operation->left.get(), entry, "edx", stack_info);
+                evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
 
                 const std::string terminator = "0";
 
@@ -195,7 +200,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         }
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
         if (stack_info.exists(call->identifier)) {
-            entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier)) + "]"));
+            entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier).offset) + "]"));
         } else {
             success = false;
             throw std::runtime_error("Variable not declared: '" + call->identifier + "'");
@@ -215,9 +220,10 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
 }
 
 void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    std::string left_reg = "eax";
-    std::string right_reg = "ebx";
-    std::string temp_reg = "ecx";
+    const auto type_info = get_type_info(operation, stack_info);
+    std::string left_reg = get_registry("rax", type_info.size);
+    std::string right_reg = get_registry("rbx", type_info.size);
+    std::string temp_reg = get_registry("rcx", type_info.size);
 
     evaluate_expr(operation->left.get(), entry, left_reg, stack_info);
 
@@ -235,10 +241,10 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
     } else if (operation->op == "*") {
         entry->instructions.push_back(std::make_unique<Imul>(left_reg, right_reg));
     } else if (operation->op == "/") {
-        entry->instructions.push_back(std::make_unique<Mov>("eax", left_reg));
-        entry->instructions.push_back(std::make_unique<Xor>("edx", "edx"));
+        entry->instructions.push_back(std::make_unique<Mov>(get_registry("rax", type_info.size), left_reg));
+        entry->instructions.push_back(std::make_unique<Xor>(get_registry("rdx", type_info.size), get_registry("rdx", type_info.size)));
         entry->instructions.push_back(std::make_unique<Idiv>(right_reg));
-        left_reg = "eax";
+        left_reg = get_registry("rax", type_info.size);
     }
 
     if (left_reg != target) {
@@ -249,7 +255,7 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
 void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target, StackInfo &stack_info) {
     if (expr->op == "-") {
         evaluate_expr(expr->value.get(), entry, target, stack_info);
-        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));    
+        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));
     } else {
         success = false;
         throw std::runtime_error("Unsupported operator: " + expr->op);
@@ -280,28 +286,222 @@ void IRGenerator::add_extern(const std::string &id) {
     }
 }
 
-const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr) {
+std::string IRGenerator::get_registry(const std::string &top_name, const int &size) {
+    if (top_name == "rax") {
+        if (size >= 8) return "rax";
+        if (size >= 4) return "eax";
+        if (size >= 2) return "ax";
+        if (size >= 1) return "al";
+    } else if (top_name == "rbx") {
+        if (size >= 8) return "rbx";
+        if (size >= 4) return "ebx";
+        if (size >= 2) return "bx";
+        if (size >= 1) return "bl";
+    } else if (top_name == "rcx") {
+        if (size >= 8) return "rcx";
+        if (size >= 4) return "ecx";
+        if (size >= 2) return "cx";
+        if (size >= 1) return "cl";
+    } else if (top_name == "rdx") {
+        if (size >= 8) return "rdx";
+        if (size >= 4) return "edx";
+        if (size >= 2) return "dx";
+        if (size >= 1) return "dl";
+    } else if (top_name == "rsi") {
+        if (size >= 8) return "rsi";
+        if (size >= 4) return "esi";
+        if (size >= 2) return "si";
+        if (size >= 1) return "sil";
+    } else if (top_name == "rdi") {
+        if (size >= 8) return "rdi";
+        if (size >= 4) return "edi";
+        if (size >= 2) return "di";
+        if (size >= 1) return "dil";
+    } else if (top_name == "rbp") {
+        if (size >= 8) return "rbp";
+        if (size >= 4) return "ebp";
+        if (size >= 2) return "bp";
+        if (size >= 1) return "bpl";
+    } else if (top_name == "rsp") {
+        if (size >= 8) return "rsp";
+        if (size >= 4) return "esp";
+        if (size >= 2) return "sp";
+        if (size >= 1) return "spl";
+    } else if (top_name == "r8") {
+        if (size >= 8) return "r8";
+        if (size >= 4) return "r8d";
+        if (size >= 2) return "r8w";
+        if (size >= 1) return "r8b";
+    } else if (top_name == "r9") {
+        if (size >= 8) return "r9";
+        if (size >= 4) return "r9d";
+        if (size >= 2) return "r9w";
+        if (size >= 1) return "r9b";
+    } else if (top_name == "r10") {
+        if (size >= 8) return "r10";
+        if (size >= 4) return "r10d";
+        if (size >= 2) return "r10w";
+        if (size >= 1) return "r10b";
+    } else if (top_name == "r11") {
+        if (size >= 8) return "r11";
+        if (size >= 4) return "r11d";
+        if (size >= 2) return "r11w";
+        if (size >= 1) return "r11b";
+    } else if (top_name == "r12") {
+        if (size >= 8) return "r12";
+        if (size >= 4) return "r12d";
+        if (size >= 2) return "r12w";
+        if (size >= 1) return "r12b";
+    } else if (top_name == "r13") {
+        if (size >= 8) return "r13";
+        if (size >= 4) return "r13d";
+        if (size >= 2) return "r13w";
+        if (size >= 1) return "r13b";
+    } else if (top_name == "r14") {
+        if (size >= 8) return "r14";
+        if (size >= 4) return "r14d";
+        if (size >= 2) return "r14w";
+        if (size >= 1) return "r14b";
+    } else if (top_name == "r15") {
+        if (size >= 8) return "r15";
+        if (size >= 4) return "r15d";
+        if (size >= 2) return "r15w";
+        if (size >= 1) return "r15b";
+    }
+
+    success = false;
+    throw std::runtime_error("Could not deduce registry part of unknown top registry: '" + top_name + "', '" + std::to_string(size) + "' byte(s)");
+}
+
+std::string IRGenerator::get_word(const int &size) {
+    if (size >= 8) return "qword";
+    else if (size >= 4) return "dword";
+    else if (size >= 2) return "word";
+    else if (size >= 1) return "byte";
+    else {
+        success = false;
+        throw std::runtime_error("Could not deduce word size: '" + std::to_string(size) + "' byte(s)");
+    }
+}
+
+const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr, StackInfo &stack_info) {
     TypeInfo type_info;
     if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         type_info.name = "i32";
-        type_info.type = IntegralType::INT;
-        type_info.size = 4;
+        type_info.type = get_integral_type(type_info.name);
+        type_info.size = get_data_size(type_info.name);
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
         type_info.name = "string";
-        type_info.type = IntegralType::STRING;
-        type_info.size = 24;
+        type_info.type = get_integral_type(type_info.name);
+        type_info.size = get_data_size(type_info.name);
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        type_info.name = "i32";
-        type_info.type = IntegralType::INT;
-        type_info.size = 4;
+        type_info = stack_info.get(call->identifier).type;
     } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
+        const auto type_info = get_type_info(operation->value.get(), stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
+        const auto left_type_info = get_type_info(operation->left.get(), stack_info);
+        const auto right_type_info = get_type_info(operation->right.get(), stack_info);
+        if (left_type_info.type == IntegralType::INT) {
+            if (right_type_info.type == IntegralType::INT || right_type_info.type == IntegralType::UINT) {
+                type_info = left_type_info;
+                type_info.size = std::max(left_type_info.size, right_type_info.size);
+            } else {
+                success = false;
+                throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
+            }
+        } else if (left_type_info.type == IntegralType::UINT) {
+            if (right_type_info.type == IntegralType::INT) {
+                type_info = right_type_info;
+                type_info.size = std::max(left_type_info.size, right_type_info.size);
+            } else if (right_type_info.type == IntegralType::UINT) {
+                type_info = left_type_info;
+                type_info.size = std::max(left_type_info.size, right_type_info.size);
+            } else {
+                success = false;
+                throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
+            }
+        } else if (left_type_info.type == IntegralType::STRING) {
+            if (right_type_info.type == IntegralType::STRING) {
+                type_info = left_type_info;
+                type_info.size = std::max(left_type_info.size, right_type_info.size);
+            } else {
+                success = false;
+                throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
+            }
+        } else if (left_type_info.type == IntegralType::FLOAT) {
+            success = false;
+            throw std::runtime_error("Could not deduce type of binary expression using: '" + left_type_info.name + "'");
+            // type_info.name = left_type_info.name;
+            // type_info.type = get_integral_type(type_info.name);
+            // type_info.size = get_data_size(type_info.name);
+        }
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
+        type_info.name = operation->right;
+        type_info.type = get_integral_type(type_info.name);
+        type_info.size = get_data_size(type_info.name);
     } else {
         success = false;
         throw std::runtime_error("Could not deduce type of unknown expression.");
     }
     return type_info;
+}
+
+const IRGenerator::TypeInfo IRGenerator::get_type_info(const std::string &name) {
+    TypeInfo type_info;
+    type_info.name = name;
+    type_info.type = get_integral_type(type_info.name);
+    type_info.size = get_data_size(type_info.name);
+    return type_info;
+}
+
+IRGenerator::IntegralType IRGenerator::get_integral_type(const std::string &name) {
+    if (name == "string") return IntegralType::STRING;
+    if (name == "bool") return IntegralType::BOOL;
+    if (name == "i8") return IntegralType::INT;
+    if (name == "i16") return IntegralType::INT;
+    if (name == "i32") return IntegralType::INT;
+    if (name == "i64") return IntegralType::INT;
+    if (name == "u8") return IntegralType::UINT;
+    if (name == "u16") return IntegralType::UINT;
+    if (name == "u32") return IntegralType::UINT;
+    if (name == "u64") return IntegralType::UINT;
+    if (name == "f8") return IntegralType::FLOAT;
+    if (name == "f16") return IntegralType::FLOAT;
+    if (name == "f32") return IntegralType::FLOAT;
+    if (name == "f64") return IntegralType::FLOAT;
+    else return IntegralType::UNKNOWN;
+}
+
+int IRGenerator::get_data_size(const std::string &name) {
+    if (name == "string") return 24;
+    if (name == "bool") return 1;
+    if (name == "i8") return 1;
+    if (name == "i16") return 2;
+    if (name == "i32") return 4;
+    if (name == "i64") return 8;
+    if (name == "u8") return 1;
+    if (name == "u16") return 2;
+    if (name == "u32") return 4;
+    if (name == "u64") return 8;
+    if (name == "f8") return 1;
+    if (name == "f16") return 2;
+    if (name == "f32") return 4;
+    if (name == "f64") return 8;
+    else {
+        success = false;
+        throw std::runtime_error("Could not deduce data size of unknown type: '" + name + "'");
+    }
+}
+
+int IRGenerator::align_by(const int &src, const int &size) {
+    if (src < 0) {
+        std::cerr << "Alignment errror: " << src << '\n';
+        return 0;
+    } else if (src == 0) {
+        return 0;
+    } else {
+        return ((src + size - 1) / size) * size;
+    }
 }
 
 const std::string IRGenerator::get_hash(const std::string &src, const std::string &prefix) const {
@@ -327,6 +527,25 @@ const bool IRGenerator::match_type(const std::string &id, const std::initializer
     return false;
 }
 
+IRGenerator::TypeInfo::TypeInfo() : name("unknown"), type(IntegralType::UNKNOWN), size(0) {}
+
+IRGenerator::StackEntry::StackEntry() : offset(0) {}
+
+IRGenerator::StackInfo::StackInfo() : size(0) {}
+
+IRGenerator::StackEntry IRGenerator::StackInfo::get(const std::string &id) {
+    return keys.at(id);
+}
+
+int IRGenerator::StackInfo::get_bottom() {
+    if (keys.size() != 0) {
+        const auto &e = keys.rbegin()->second;
+        return e.offset + e.type.size;
+    } else {
+        return 0;
+    }
+}
+
 bool IRGenerator::StackInfo::exists(const std::string &id) {
     if (keys.find(id) == keys.end()) {
         return false;
@@ -335,20 +554,11 @@ bool IRGenerator::StackInfo::exists(const std::string &id) {
     }
 }
 
-int IRGenerator::StackInfo::get(const std::string &id) {
-    return keys.at(id);
-}
-
-int IRGenerator::StackInfo::get_offset() {
-    if (keys.size() != 0) {
-        return keys.rbegin()->second;
-    } else {
-        return 0;
-    }
-}
-
-void IRGenerator::StackInfo::push(const std::string &id, const int &size) {
-    keys.insert({id, get_offset() + size});
+void IRGenerator::StackInfo::push(const std::string &id, const TypeInfo &type) {
+    StackEntry entry;
+    entry.offset = get_bottom();
+    entry.type = type;
+    keys.insert({id, entry});
 }
 
 const std::vector<std::string>& IRGenerator::get_ext_libs() const {
