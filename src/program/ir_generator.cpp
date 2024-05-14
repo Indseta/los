@@ -63,7 +63,7 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         evaluate_function_call(call, entry, stack_info);
     } else if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
         int stack_size = 32;
-        entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size + 32)));
+        entry->instructions.push_back(std::make_unique<Sub>("rsp", std::to_string(stack_size)));
         StackInfo nested_stack_info = stack_info;
         for (const auto &t : decl->ast) {
             evaluate_statement(t.get(), entry, nested_stack_info);
@@ -71,6 +71,8 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(stack_size + 32)));
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
         evaluate_variable_declaration(decl, entry, stack_info);
+    } else if (const auto *assign = dynamic_cast<const Parser::VariableAssignment*>(statement)) {
+        evaluate_variable_assignment(assign, entry, stack_info);
     } else if (const auto *empty = dynamic_cast<const Parser::EmptyStatement*>(statement)) {
     } else {
         success = false;
@@ -145,7 +147,18 @@ void IRGenerator::evaluate_variable_declaration(const Parser::VariableDeclaratio
         stack_info.push(decl->identifier, size);
     } else {
         success = false;
-        throw std::runtime_error("Variable not declared or inaccessible: '" + decl->identifier + "'");
+        throw std::runtime_error("Variable already declared: '" + decl->identifier + "'");
+    }
+}
+
+void IRGenerator::evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info) {
+    if (stack_info.exists(assign->identifier)) {
+        evaluate_expr(assign->expr.get(), entry, "edx", stack_info);
+        int offset = stack_info.get(assign->identifier);
+        entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset) +"]", "edx"));
+    } else {
+        success = false;
+        throw std::runtime_error("Variable not declared or inaccessible: '" + assign->identifier + "'");
     }
 }
 

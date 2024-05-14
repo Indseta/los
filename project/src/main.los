@@ -1,8 +1,6 @@
 void hello() {
-    i32 x = 100;
-    i32 y = x + 200;
-    println(x as string);
-    println(y as string);
+    i32 x = 200;
+    println("Number: ", x as string);
 }
 
 void main() {

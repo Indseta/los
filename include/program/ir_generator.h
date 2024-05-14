@@ -178,6 +178,7 @@ private:
     void evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info);
     void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info);
+    void evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info);
 
     void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target, StackInfo &stack_info);
     void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
