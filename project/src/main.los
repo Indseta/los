@@ -1,5 +1,5 @@
 void hello() {
-    u64 x = -1;
+    u8 x = -1;
     println("Number: ", x as string);
 }
 

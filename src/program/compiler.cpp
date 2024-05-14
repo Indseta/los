@@ -94,8 +94,12 @@ void Compiler::compile(const IRGenerator &ir_generator) {
                     file_stream << '\t' << "push " << push_instr->src << '\n';
                 } else if (const auto *mov_instr = dynamic_cast<const IRGenerator::Mov*>(instruction.get())) {
                     file_stream << '\t' << "mov " << mov_instr->dst << ", " << mov_instr->src << '\n';
+                } else if (const auto *movsx_instr = dynamic_cast<const IRGenerator::Movsx*>(instruction.get())) {
+                    file_stream << '\t' << "movsx " << movsx_instr->dst << ", " << movsx_instr->src << '\n';
                 } else if (const auto *lea_instr = dynamic_cast<const IRGenerator::Lea*>(instruction.get())) {
                     file_stream << '\t' << "lea " << lea_instr->dst << ", " << lea_instr->src << '\n';
+                } else if (const auto *neg_instr = dynamic_cast<const IRGenerator::Neg*>(instruction.get())) {
+                    file_stream << '\t' << "neg " << neg_instr->dst << '\n';
                 } else if (const auto *imul_instr = dynamic_cast<const IRGenerator::Imul*>(instruction.get())) {
                     file_stream << '\t' << "imul " << imul_instr->dst << ", " << imul_instr->src << '\n';
                 } else if (const auto *idiv_instr = dynamic_cast<const IRGenerator::Idiv*>(instruction.get())) {

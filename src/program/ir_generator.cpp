@@ -173,38 +173,9 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         evaluate_binary_operation(operation, entry, target, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
-        const auto type_info = get_type_info(operation->left.get(), stack_info);
-        const std::string cast_type = operation->right;
-        if (cast_type == "string") {
-            if (type_info.type == IntegralType::STRING) {
-                evaluate_expr(operation->left.get(), entry, target, stack_info);
-            } else if (type_info.type == IntegralType::INT) {
-                evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
-
-                const std::string terminator = "0";
-
-                const std::string value = "\"%d\"";
-                const auto hash = get_hash(value + terminator, "c");
-                push_unique(std::make_unique<Db>(hash, value, terminator), data);
-                entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
-            } else if (type_info.type == IntegralType::UINT) {
-                evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
-
-                const std::string terminator = "0";
-
-                const std::string value = "\"%u\"";
-                const auto hash = get_hash(value + terminator, "c");
-                push_unique(std::make_unique<Db>(hash, value, terminator), data);
-                entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
-            }
-        }
+        evaluate_cast_operation(operation, entry, target, stack_info);
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        if (stack_info.exists(call->identifier)) {
-            entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier).offset) + "]"));
-        } else {
-            success = false;
-            throw std::runtime_error("Variable not declared: '" + call->identifier + "'");
-        }
+        evaluate_variable_call(call, entry, target, stack_info);
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
@@ -252,13 +223,52 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
     }
 }
 
-void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *expr, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    if (expr->op == "-") {
-        evaluate_expr(expr->value.get(), entry, target, stack_info);
-        entry->instructions.push_back(std::make_unique<Imul>(target, "-1"));
+void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
+    if (operation->op == "-") {
+        evaluate_expr(operation->value.get(), entry, target, stack_info);
+        entry->instructions.push_back(std::make_unique<Neg>(target));
     } else {
         success = false;
-        throw std::runtime_error("Unsupported operator: " + expr->op);
+        throw std::runtime_error("Unsupported operator: " + operation->op);
+    }
+}
+
+void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
+    const auto type_info = get_type_info(operation->left.get(), stack_info);
+    const std::string cast_type = operation->right;
+    if (cast_type == "string") {
+        if (type_info.type == IntegralType::STRING) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
+        } else if (type_info.type == IntegralType::INT) {
+            const std::string temp_reg = get_registry("rsi", type_info.size);
+            evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
+            entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
+
+            const std::string terminator = "0";
+
+            const std::string value = "\"%d\"";
+            const auto hash = get_hash(value + terminator, "c");
+            push_unique(std::make_unique<Db>(hash, value, terminator), data);
+            entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+        } else if (type_info.type == IntegralType::UINT) {
+            evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
+
+            const std::string terminator = "0";
+
+            const std::string value = "\"%u\"";
+            const auto hash = get_hash(value + terminator, "c");
+            push_unique(std::make_unique<Db>(hash, value, terminator), data);
+            entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+        }
+    }
+}
+
+void IRGenerator::evaluate_variable_call(const Parser::VariableCall *call, Entry *entry, const std::string &target, StackInfo &stack_info) {
+    if (stack_info.exists(call->identifier)) {
+        entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier).offset) + "]"));
+    } else {
+        success = false;
+        throw std::runtime_error("Variable not declared: '" + call->identifier + "'");
     }
 }
 
@@ -771,6 +781,19 @@ void IRGenerator::Mov::log() const {
     std::cout << "')" << '\n';
 }
 
+IRGenerator::Movsx::Movsx() {}
+
+IRGenerator::Movsx::Movsx(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Movsx::log() const {
+    std::cout << "movsx: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
 IRGenerator::Lea::Lea() {}
 
 IRGenerator::Lea::Lea(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
@@ -781,6 +804,17 @@ void IRGenerator::Lea::log() const {
     std::cout << dst;
     std::cout << "', src: '";
     std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Neg::Neg() {}
+
+IRGenerator::Neg::Neg(const std::string &dst) : dst(dst) {}
+
+void IRGenerator::Neg::log() const {
+    std::cout << "neg: (";
+    std::cout << "dst: '";
+    std::cout << dst;
     std::cout << "')" << '\n';
 }
 

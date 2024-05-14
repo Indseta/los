@@ -116,10 +116,22 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Movsx : public Instruction {
+        Movsx();
+        Movsx(const std::string &dst, const std::string &src);
+        std::string dst, src;
+        void log() const override;
+    };
     struct Lea : public Instruction {
         Lea();
         Lea(const std::string &dst, const std::string &src);
         std::string dst, src;
+        void log() const override;
+    };
+    struct Neg : public Instruction {
+        Neg();
+        Neg(const std::string &dst);
+        std::string dst;
         void log() const override;
     };
     struct Imul : public Instruction {
@@ -193,6 +205,9 @@ private:
     void evaluate_expr(const Parser::Node *expr, Entry *entry, const std::string &target, StackInfo &stack_info);
     void evaluate_unary_operation(const Parser::UnaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
     void evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
+    void evaluate_cast_operation(const Parser::CastOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info);
+
+    void evaluate_variable_call(const Parser::VariableCall *call, Entry *entry, const std::string &target, StackInfo &stack_info);
 
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
