@@ -401,39 +401,41 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr,
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         const auto left_type_info = get_type_info(operation->left.get(), stack_info);
         const auto right_type_info = get_type_info(operation->right.get(), stack_info);
-        if (left_type_info.type == IntegralType::INT) {
-            if (right_type_info.type == IntegralType::INT || right_type_info.type == IntegralType::UINT) {
+        if (left_type_info.type == IntegralType::STRING) {
+            if (right_type_info.type == IntegralType::STRING) {
                 type_info = left_type_info;
                 type_info.size = std::max(left_type_info.size, right_type_info.size);
+                success = false;
+            } else {
+                success = false;
+                throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
+            }
+        } else if (left_type_info.type == IntegralType::FLOAT || right_type_info.type == IntegralType::FLOAT) {
+            type_info.name = left_type_info.name;
+            type_info.type = get_integral_type(type_info.name);
+            type_info.size = get_data_size(type_info.name);
+        } else if (left_type_info.type == IntegralType::INT) {
+            if (right_type_info.type == IntegralType::INT || right_type_info.type == IntegralType::UINT) {
+                type_info.type = IntegralType::INT;
+                type_info.size = std::max(left_type_info.size, right_type_info.size);
+                type_info.name = "i" + std::to_string(type_info.size * 8);
             } else {
                 success = false;
                 throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
             }
         } else if (left_type_info.type == IntegralType::UINT) {
             if (right_type_info.type == IntegralType::INT) {
-                type_info = right_type_info;
+                type_info.type = IntegralType::INT;
                 type_info.size = std::max(left_type_info.size, right_type_info.size);
+                type_info.name = "i" + std::to_string(type_info.size * 8);
             } else if (right_type_info.type == IntegralType::UINT) {
-                type_info = left_type_info;
+                type_info.type = IntegralType::UINT;
                 type_info.size = std::max(left_type_info.size, right_type_info.size);
+                type_info.name = "u" + std::to_string(type_info.size * 8);
             } else {
                 success = false;
                 throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
             }
-        } else if (left_type_info.type == IntegralType::STRING) {
-            if (right_type_info.type == IntegralType::STRING) {
-                type_info = left_type_info;
-                type_info.size = std::max(left_type_info.size, right_type_info.size);
-            } else {
-                success = false;
-                throw std::runtime_error("Invalid expression: '" + left_type_info.name + "', '" + right_type_info.name + "'");
-            }
-        } else if (left_type_info.type == IntegralType::FLOAT) {
-            success = false;
-            throw std::runtime_error("Could not deduce type of binary expression using: '" + left_type_info.name + "'");
-            // type_info.name = left_type_info.name;
-            // type_info.type = get_integral_type(type_info.name);
-            // type_info.size = get_data_size(type_info.name);
         }
     } else if (const auto *operation = dynamic_cast<const Parser::CastOperation*>(expr)) {
         type_info.name = operation->right;
