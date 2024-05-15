@@ -158,6 +158,18 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Cmp : public Instruction {
+        Cmp();
+        Cmp(const std::string &left, const std::string &right);
+        std::string left, right;
+        void log() const override;
+    };
+    struct Cmove : public Instruction {
+        Cmove();
+        Cmove(const std::string &dst, const std::string &src);
+        std::string dst, src;
+        void log() const override;
+    };
     struct Xor : public Instruction {
         Xor();
         Xor(const std::string &dst, const std::string &src);

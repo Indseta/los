@@ -100,6 +100,10 @@ void Compiler::compile(const IRGenerator &ir_generator) {
                     file_stream << '\t' << "add " << add_instr->dst << ", " << add_instr->src << '\n';
                 } else if (const auto *sub_instr = dynamic_cast<const IRGenerator::Sub*>(instruction.get())) {
                     file_stream << '\t' << "sub " << sub_instr->dst << ", " << sub_instr->src << '\n';
+                } else if (const auto *Cmp_instr = dynamic_cast<const IRGenerator::Cmp*>(instruction.get())) {
+                    file_stream << '\t' << "cmp " << Cmp_instr->left << ", " << Cmp_instr->right << '\n';
+                } else if (const auto *Cmove_instr = dynamic_cast<const IRGenerator::Cmove*>(instruction.get())) {
+                    file_stream << '\t' << "cmove " << Cmove_instr->dst << ", " << Cmove_instr->src << '\n';
                 } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction.get())) {
                     file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
                 } else if (const auto *leave_instr = dynamic_cast<const IRGenerator::Leave*>(instruction.get())) {

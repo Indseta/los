@@ -1,8 +1,8 @@
 #include <program/environment.h>
-#define NLOG
+// #define NLOG
 
 void Environment::run(const std::string &fp) {
-#ifdef NLOG
+#ifndef NLOG
     auto start = std::chrono::high_resolution_clock::now();
 #endif
 
@@ -18,7 +18,7 @@ void Environment::run(const std::string &fp) {
         return;
     }
 
-#ifdef NLOG
+#ifndef NLOG
     lexer.log();
 #endif
 
@@ -28,7 +28,7 @@ void Environment::run(const std::string &fp) {
         return;
     }
 
-#ifdef NLOG
+#ifndef NLOG
     parser.log();
 #endif
 
@@ -38,7 +38,7 @@ void Environment::run(const std::string &fp) {
         return;
     }
 
-#ifdef NLOG
+#ifndef NLOG
     ir_generator.log();
 #endif
 
@@ -48,7 +48,7 @@ void Environment::run(const std::string &fp) {
         return;
     }
 
-#ifdef NLOG
+#ifndef NLOG
     // End program
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end - start;

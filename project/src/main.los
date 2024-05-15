@@ -1,12 +1,4 @@
-void print(string value) {
-    println(value);
-}
-
-void print(i32 value) {
-    println(value as string);
-}
-
 void main() {
-    print("Hello world");
-    print(298);
+    bool x = 20 == 2;
+    println(x as string);
 }

@@ -196,6 +196,8 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         evaluate_variable_call(call, entry, target, stack_info);
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
+    } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
+        entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
         const std::string value = '\"' + literal->value + '\"';
         const std::string terminator = "0";
@@ -209,7 +211,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
 }
 
 void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    const auto type_info = get_type_info(operation, entry, stack_info);
+    auto type_info = get_type_info(operation, entry, stack_info);
     std::string left_reg = get_registry("rax", type_info.size);
     std::string right_reg = get_registry("rbx", type_info.size);
     std::string temp_reg = get_registry("rcx", type_info.size);
@@ -234,6 +236,20 @@ void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *opera
         entry->instructions.push_back(std::make_unique<Xor>(get_registry("rdx", type_info.size), get_registry("rdx", type_info.size)));
         entry->instructions.push_back(std::make_unique<Idiv>(right_reg));
         left_reg = get_registry("rax", type_info.size);
+    } else if (operation->op == "==") {
+        entry->instructions.push_back(std::make_unique<Cmp>(left_reg, right_reg));
+        entry->instructions.push_back(std::make_unique<Xor>(left_reg, left_reg));
+        entry->instructions.push_back(std::make_unique<Mov>(right_reg, "1"));
+        entry->instructions.push_back(std::make_unique<Cmove>(left_reg, right_reg));
+
+        type_info = get_type_info("bool");
+        left_reg = get_registry("rax", type_info.size);
+
+    } else if (operation->op == "!=") {
+    } else if (operation->op == ">") {
+    } else if (operation->op == ">=") {
+    } else if (operation->op == "<") {
+    } else if (operation->op == "<=") {
     }
 
     if (left_reg != target) {
@@ -262,21 +278,40 @@ void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation
             evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
             entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
 
+            const std::string value = "\"%d\"";
             const std::string terminator = "0";
 
-            const std::string value = "\"%d\"";
             const auto hash = get_hash(value + terminator, "c");
             push_unique(std::make_unique<Db>(hash, value, terminator), data);
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
         } else if (type_info.type == IntegralType::UINT) {
             evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
 
+            const std::string value = "\"%u\"";
             const std::string terminator = "0";
 
-            const std::string value = "\"%u\"";
             const auto hash = get_hash(value + terminator, "c");
             push_unique(std::make_unique<Db>(hash, value, terminator), data);
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+        } else if (type_info.type == IntegralType::BOOL) {
+            const std::string true_value = "\"true\"";
+            const std::string false_value = "\"false\"";
+            const std::string terminator = "0";
+
+            const auto true_hash = get_hash(true_value + terminator, "c");
+            const auto false_hash = get_hash(false_value + terminator, "c");
+            push_unique(std::make_unique<Db>(true_hash, true_value, terminator), data);
+            push_unique(std::make_unique<Db>(false_hash, false_value, terminator), data);
+
+            const std::string temp_reg = get_registry("rsi", type_info.size);
+
+            evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
+
+            entry->instructions.push_back(std::make_unique<Lea>("rdx", "[" + true_hash + "]"));
+            entry->instructions.push_back(std::make_unique<Lea>(target, "[" + false_hash + "]"));
+
+            entry->instructions.push_back(std::make_unique<Cmp>(temp_reg, "1"));
+            entry->instructions.push_back(std::make_unique<Cmove>(target, "rdx"));
         }
     }
 }
@@ -512,7 +547,7 @@ IRGenerator::IntegralType IRGenerator::get_integral_type(const std::string &name
 }
 
 int IRGenerator::get_data_size(const std::string &name) {
-    if (name == "string") return 24;
+    if (name == "string") return 8;
     if (name == "bool") return 1;
     if (name == "i8") return 1;
     if (name == "i16") return 2;
@@ -881,12 +916,39 @@ void IRGenerator::Add::log() const {
     std::cout << src;
     std::cout << "')" << '\n';
 }
+
 IRGenerator::Sub::Sub() {}
 
 IRGenerator::Sub::Sub(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
 
 void IRGenerator::Sub::log() const {
     std::cout << "sub: (";
+    std::cout << "dst: '";
+    std::cout << dst;
+    std::cout << "', src: '";
+    std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Cmp::Cmp() {}
+
+IRGenerator::Cmp::Cmp(const std::string &left, const std::string &right) : left(left), right(right) {}
+
+void IRGenerator::Cmp::log() const {
+    std::cout << "cmp: (";
+    std::cout << "left: '";
+    std::cout << left;
+    std::cout << "', right: '";
+    std::cout << right;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Cmove::Cmove() {}
+
+IRGenerator::Cmove::Cmove(const std::string &dst, const std::string &src) : dst(dst), src(src) {}
+
+void IRGenerator::Cmove::log() const {
+    std::cout << "cmove: (";
     std::cout << "dst: '";
     std::cout << dst;
     std::cout << "', src: '";
