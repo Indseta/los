@@ -31,7 +31,18 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
     }
 
     auto entry = std::make_unique<Entry>(identifier);
-    entry->args_ids = decl->args_ids;
+
+    if (identifier != "main") {
+        int offset = 16;
+        for (size_t i = 0; i < decl->args_ids.size(); ++i) {
+            StackEntry arg;
+            arg.type = get_type_info(decl->args_types[i]);
+            arg.offset = offset;
+            offset += arg.type.size;
+            entry->args_stack.keys.insert({decl->args_ids[i], arg});
+        }
+    }
+
     entry.get()->instructions.push_back(std::make_unique<Push>("rbp"));
     entry.get()->instructions.push_back(std::make_unique<Mov>("rbp", "rsp"));
 
@@ -109,7 +120,7 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
     } else {
         std::string identifier = call->identifier;
         for (const auto &arg : call->args) {
-            auto type_info = get_type_info(arg.get(), stack_info);
+            auto type_info = get_type_info(arg.get(), entry, stack_info);
             identifier += type_info.name;
         }
         identifier = get_hash(identifier, "f");
@@ -118,17 +129,24 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
             if (auto *decl = dynamic_cast<Entry*>(text.declarations[i].get())) {
                 std::string other_id = decl->id;
                 if (other_id == identifier) {
-                    entry->instructions.push_back(std::make_unique<Call>(identifier));
+                    int alloc_at = entry->instructions.size();
+                    int offset = 0;
 
-                    for (int y = 0; y < decl->args_ids.size(); ++y) {
-                        const auto &arg = decl->args_ids[y];
-                        // decl->instructions.insert(decl->instructions.begin() + 3, std::make_unique<Mov>("rcx", "rcx"));
-                        // evaluate_expr(call->args[y].get(), entry, "edx", stack_info);
-                        // int offset = stack_info.get_offset();
-                        // int size = 4;
-                        // entry->instructions.push_back(std::make_unique<Mov>("dword [rbp - " + std::to_string(offset + size) +"]", "edx"));
+                    int y = 0;
+                    for (const auto &decl_arg : decl->args_stack.keys) {
+                        const auto &call_arg = call->args[y].get();
+                        const std::string temp_reg = get_registry("rsi", decl_arg.second.type.size);
+                        evaluate_expr(call_arg, entry, temp_reg, stack_info);
+                        entry->instructions.push_back(std::make_unique<Mov>(get_word(decl_arg.second.type.size) + " [rsp + " + std::to_string(offset) + "]", temp_reg));
+
+                        offset += decl_arg.second.type.size;
+                        ++y;
                     }
 
+                    const std::string res_size = std::to_string(align_by(offset, 16));
+                    entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", res_size));
+                    entry->instructions.push_back(std::make_unique<Call>(identifier));
+                    entry->instructions.push_back(std::make_unique<Add>("rsp", res_size));
                     return;
                 }
             }
@@ -191,7 +209,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
 }
 
 void IRGenerator::evaluate_binary_operation(const Parser::BinaryOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    const auto type_info = get_type_info(operation, stack_info);
+    const auto type_info = get_type_info(operation, entry, stack_info);
     std::string left_reg = get_registry("rax", type_info.size);
     std::string right_reg = get_registry("rbx", type_info.size);
     std::string temp_reg = get_registry("rcx", type_info.size);
@@ -234,7 +252,7 @@ void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *operati
 }
 
 void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    const auto type_info = get_type_info(operation->left.get(), stack_info);
+    const auto type_info = get_type_info(operation->left.get(), entry, stack_info);
     const std::string cast_type = operation->right;
     if (cast_type == "string") {
         if (type_info.type == IntegralType::STRING) {
@@ -266,9 +284,11 @@ void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation
 void IRGenerator::evaluate_variable_call(const Parser::VariableCall *call, Entry *entry, const std::string &target, StackInfo &stack_info) {
     if (stack_info.exists(call->identifier)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp - " + std::to_string(stack_info.get(call->identifier).offset) + "]"));
+    } else if (entry->args_stack.exists(call->identifier)) {
+        entry->instructions.push_back(std::make_unique<Mov>(target, "[rbp + " + std::to_string(entry->args_stack.get(call->identifier).offset) + "]"));
     } else {
         success = false;
-        throw std::runtime_error("Variable not declared: '" + call->identifier + "'");
+        throw std::runtime_error("Variable not declared or inaccessible: '" + call->identifier + "'");
     }
 }
 
@@ -394,7 +414,7 @@ std::string IRGenerator::get_word(const int &size) {
     }
 }
 
-const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr, StackInfo &stack_info) {
+const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr, Entry *entry, StackInfo &stack_info) {
     TypeInfo type_info;
     if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         type_info.name = "i32";
@@ -405,12 +425,19 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr,
         type_info.type = get_integral_type(type_info.name);
         type_info.size = get_data_size(type_info.name);
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
-        type_info = stack_info.get(call->identifier).type;
+        if (stack_info.exists(call->identifier)) {
+            type_info = stack_info.get(call->identifier).type;
+        } else if (entry->args_stack.exists(call->identifier)) {
+            type_info = entry->args_stack.get(call->identifier).type;
+        } else {
+            success = false;
+            throw std::runtime_error("Variable not declared or inaccessible: '" + call->identifier + "'");
+        }
     } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
-        const auto type_info = get_type_info(operation->value.get(), stack_info);
+        const auto type_info = get_type_info(operation->value.get(), entry, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
-        const auto left_type_info = get_type_info(operation->left.get(), stack_info);
-        const auto right_type_info = get_type_info(operation->right.get(), stack_info);
+        const auto left_type_info = get_type_info(operation->left.get(), entry, stack_info);
+        const auto right_type_info = get_type_info(operation->right.get(), entry, stack_info);
         if (left_type_info.type == IntegralType::STRING) {
             if (right_type_info.type == IntegralType::STRING) {
                 type_info = left_type_info;

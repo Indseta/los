@@ -21,7 +21,7 @@ private:
     int run_cmd(const std::string &cmd);
 
     std::ofstream file_stream;
-    std::string sfn;
+    std::string fp;
 
     bool success;
 };

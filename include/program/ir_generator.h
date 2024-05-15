@@ -100,7 +100,7 @@ public:
         Entry();
         Entry(const std::string &id);
         std::string id;
-        std::vector<std::string> args_ids;
+        StackInfo args_stack;
         std::vector<std::unique_ptr<Instruction>> instructions;
         virtual void log() const override;
     };
@@ -213,7 +213,7 @@ private:
     void add_extern(const std::string &id);
 
     const TypeInfo get_type_info(const std::string &name);
-    const TypeInfo get_type_info(const Parser::Node *expr, StackInfo &stack_info);
+    const TypeInfo get_type_info(const Parser::Node *expr, Entry *entry, StackInfo &stack_info);
     const std::string get_hash(const std::string &src, const std::string &prefix = "d") const;
     const bool match_type(const std::string &id, const std::initializer_list<std::string> &types) const;
 

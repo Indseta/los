@@ -1,8 +1,12 @@
-void hello() {
-    u8 x = -1;
-    println("Number: ", x as string);
+void print(string value) {
+    println(value);
+}
+
+void print(i32 value) {
+    println(value as string);
 }
 
 void main() {
-    hello();
+    print("Hello world");
+    print(298);
 }

@@ -1,17 +1,9 @@
 #include <program/compiler.h>
 
-Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) {
+Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) : fp(fp) {
     success = true;
 
-    sfn = fp;
-    std::string ext = ".los";
-
-    size_t pos = sfn.find(ext);
-    if (pos != std::string::npos) {
-        sfn.erase(pos, ext.length());
-    }
-
-    file_stream.open(sfn + ".asm");
+    file_stream.open(fp + ".asm");
 
     if (!file_stream.is_open()) {
         success = false;
@@ -22,20 +14,20 @@ Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) {
 
     file_stream.close();
 
-    if (run_cmd("nasm.exe -f win64 -g -o " + sfn + ".o " + sfn + ".asm")) {
+    if (run_cmd("nasm.exe -f win64 -g -o " + fp + ".o " + fp + ".asm")) {
         std::cout << "Assembly failed." << '\n';
         success = false;
         return;
     }
 
-    if (run_cmd("gcc.exe -m64 -g " + sfn + ".o -o " + sfn)) {
+    if (run_cmd("gcc.exe -m64 -g " + fp + ".o -o " + fp)) {
         std::cout << "Linking failed." << '\n';
         success = false;
         return;
     }
 
-    run_cmd("del " + sfn + ".o");
-    run_cmd("del " + sfn + ".asm");
+    run_cmd("del " + fp + ".o");
+    run_cmd("del " + fp + ".asm");
 }
 
 Compiler::~Compiler() {
@@ -45,7 +37,7 @@ Compiler::~Compiler() {
 }
 
 void Compiler::run() {
-    run_cmd("call " + sfn + ".exe");
+    run_cmd("call " + fp + ".exe");
 }
 
 void Compiler::compile(const IRGenerator &ir_generator) {

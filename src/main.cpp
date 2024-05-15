@@ -79,7 +79,12 @@ int main(int argc, char *argv[]) {
         Environment environment;
         try {
             std::string fp = argv[1];
-            fp += ".los";
+            std::string ext = ".los";
+
+            size_t pos = fp.find(ext);
+            if (pos != std::string::npos) {
+                fp.erase(pos, ext.length());
+            }
             environment.run(fp);
         } catch (const std::exception &e) {
             std::cerr << e.what() << '\n';
