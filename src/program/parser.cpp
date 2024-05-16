@@ -65,7 +65,7 @@ bool Parser::match_key() {
     }
 
     if (peek().category == Lexer::KEYWORD) {
-        for (const auto &value : {"u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f8", "f16", "f32", "f64", "bool", "string", "vector", "ptr", "ref"}) {
+        for (const auto &value : {"uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32", "int64", "float8", "float16", "float32", "float64", "bool", "string", "vector", "ptr", "ref"}) {
             if (peek().value == value) {
                 advance();
                 return true;
@@ -314,9 +314,9 @@ std::unique_ptr<Parser::Node> Parser::unary() {
 
 std::unique_ptr<Parser::Node> Parser::primary() {
     if (peek().category == Lexer::INTEGER_LITERAL) {
-        return std::make_unique<IntegerLiteral>(std::stoi(advance().value));
+        return std::make_unique<IntegerLiteral>(advance().value);
     } else if (peek().category == Lexer::FLOAT_LITERAL) {
-        return std::make_unique<FloatLiteral>(std::stof(advance().value));
+        return std::make_unique<FloatLiteral>(advance().value);
     } else if (peek().category == Lexer::BOOLEAN_LITERAL) {
         return std::make_unique<BooleanLiteral>(advance().value == "true");
     } else if (peek().category == Lexer::STRING_LITERAL) {

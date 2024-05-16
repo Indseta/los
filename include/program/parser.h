@@ -2,6 +2,7 @@
 
 #include <program/lexer.h>
 
+#include <cstdint>
 #include <iostream>
 #include <unordered_map>
 #include <memory>
@@ -54,19 +55,19 @@ public:
     };
 
     struct IntegerLiteral : public Node {
-        IntegerLiteral(const int &value) : value(std::move(value)) {}
+        IntegerLiteral(const std::string &value) : value(std::move(value)) {}
         void log() const override {
             std::cout << "IntegerLiteral: '" << value << "'";
         }
-        int value;
+        std::string value;
     };
 
     struct FloatLiteral : public Node {
-        FloatLiteral(const float &value) : value(std::move(value)) {}
+        FloatLiteral(const std::string &value) : value(std::move(value)) {}
         void log() const override {
             std::cout << "FloatLiteral: '" << value << "'";
         }
-        float value;
+        std::string value;
     };
 
     struct BooleanLiteral : public Node {

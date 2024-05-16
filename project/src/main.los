@@ -1,4 +1,4 @@
 void main() {
-    bool x = 20 == 2;
+    int64 x = 9223372036854775807;
     println(x as string);
 }

@@ -72,9 +72,7 @@ void IRGenerator::evaluate_wrapper_statement(const Parser::Node *statement, Entr
 }
 
 void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info) {
-    if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
-        evaluate_function_call(call, entry, stack_info);
-    } else if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
+    if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement)) {
         StackInfo nested_stack_info = stack_info;
         int alloc_at = entry->instructions.size();
         for (const auto &t : decl->ast) {
@@ -83,6 +81,8 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         nested_stack_info.size = align_by(nested_stack_info.size, 16);
         entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", std::to_string(nested_stack_info.size)));
         entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(nested_stack_info.size)));
+    } else if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
+        evaluate_function_call(call, entry, stack_info);
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
         evaluate_variable_declaration(decl, entry, stack_info);
     } else if (const auto *assign = dynamic_cast<const Parser::VariableAssignment*>(statement)) {
@@ -195,7 +195,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
         evaluate_variable_call(call, entry, target, stack_info);
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
-        entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
+        entry->instructions.push_back(std::make_unique<Mov>(target, literal->value));
     } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, std::to_string(literal->value)));
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
@@ -276,18 +276,21 @@ void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation
         } else if (type_info.type == IntegralType::INT) {
             const std::string temp_reg = get_registry("rsi", type_info.size);
             evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
-            entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
+            if (type_info.size < 8) entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
+            else entry->instructions.push_back(std::make_unique<Mov>("rdx", temp_reg));
 
-            const std::string value = "\"%d\"";
+            const std::string value = type_info.size >= 8 ? "\"%lld\"" : "\"%d\"";
             const std::string terminator = "0";
 
             const auto hash = get_hash(value + terminator, "c");
             push_unique(std::make_unique<Db>(hash, value, terminator), data);
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
         } else if (type_info.type == IntegralType::UINT) {
-            evaluate_expr(operation->left.get(), entry, get_registry("rdx", type_info.size), stack_info);
+            std::string temp_reg = get_registry("rsi", type_info.size);
+            evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
+            entry->instructions.push_back(std::make_unique<Mov>("rdx", "rsi"));
 
-            const std::string value = "\"%u\"";
+            const std::string value = type_info.size >= 8 ? "\"%llu\"" : "\"%u\"";
             const std::string terminator = "0";
 
             const auto hash = get_hash(value + terminator, "c");
@@ -452,7 +455,7 @@ std::string IRGenerator::get_word(const int &size) {
 const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr, Entry *entry, StackInfo &stack_info) {
     TypeInfo type_info;
     if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
-        type_info.name = "i32";
+        type_info.name = "int32";
         type_info.type = get_integral_type(type_info.name);
         type_info.size = get_data_size(type_info.name);
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {
@@ -531,36 +534,36 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const std::string &name) 
 IRGenerator::IntegralType IRGenerator::get_integral_type(const std::string &name) {
     if (name == "string") return IntegralType::STRING;
     if (name == "bool") return IntegralType::BOOL;
-    if (name == "i8") return IntegralType::INT;
-    if (name == "i16") return IntegralType::INT;
-    if (name == "i32") return IntegralType::INT;
-    if (name == "i64") return IntegralType::INT;
-    if (name == "u8") return IntegralType::UINT;
-    if (name == "u16") return IntegralType::UINT;
-    if (name == "u32") return IntegralType::UINT;
-    if (name == "u64") return IntegralType::UINT;
-    if (name == "f8") return IntegralType::FLOAT;
-    if (name == "f16") return IntegralType::FLOAT;
-    if (name == "f32") return IntegralType::FLOAT;
-    if (name == "f64") return IntegralType::FLOAT;
+    if (name == "int8") return IntegralType::INT;
+    if (name == "int16") return IntegralType::INT;
+    if (name == "int32") return IntegralType::INT;
+    if (name == "int64") return IntegralType::INT;
+    if (name == "uint8") return IntegralType::UINT;
+    if (name == "uint16") return IntegralType::UINT;
+    if (name == "uint32") return IntegralType::UINT;
+    if (name == "uint64") return IntegralType::UINT;
+    if (name == "float8") return IntegralType::FLOAT;
+    if (name == "float16") return IntegralType::FLOAT;
+    if (name == "float32") return IntegralType::FLOAT;
+    if (name == "float64") return IntegralType::FLOAT;
     else return IntegralType::UNKNOWN;
 }
 
 int IRGenerator::get_data_size(const std::string &name) {
     if (name == "string") return 8;
     if (name == "bool") return 1;
-    if (name == "i8") return 1;
-    if (name == "i16") return 2;
-    if (name == "i32") return 4;
-    if (name == "i64") return 8;
-    if (name == "u8") return 1;
-    if (name == "u16") return 2;
-    if (name == "u32") return 4;
-    if (name == "u64") return 8;
-    if (name == "f8") return 1;
-    if (name == "f16") return 2;
-    if (name == "f32") return 4;
-    if (name == "f64") return 8;
+    if (name == "int8") return 1;
+    if (name == "int16") return 2;
+    if (name == "int32") return 4;
+    if (name == "int64") return 8;
+    if (name == "uint8") return 1;
+    if (name == "uint16") return 2;
+    if (name == "uint32") return 4;
+    if (name == "uint64") return 8;
+    if (name == "float8") return 1;
+    if (name == "float16") return 2;
+    if (name == "float32") return 4;
+    if (name == "float64") return 8;
     else {
         success = false;
         throw std::runtime_error("Could not deduce data size of unknown type: '" + name + "'");
