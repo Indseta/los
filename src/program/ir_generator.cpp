@@ -23,7 +23,8 @@ void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
 
 void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaration *decl) {
     std::string identifier = decl->identifier;
-    if (identifier != "main") {
+    bool is_main = identifier == "main" && decl->args_types.size() == 0;
+    if (!is_main) {
         for (size_t i = 0; i < decl->args_ids.size(); ++i) {
             identifier += decl->args_types[i];
         }
@@ -32,7 +33,7 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
 
     auto entry = std::make_unique<Entry>(identifier);
 
-    if (identifier != "main") {
+    if (!is_main) {
         int offset = 16;
         for (size_t i = 0; i < decl->args_ids.size(); ++i) {
             StackEntry arg;

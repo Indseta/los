@@ -1,4 +1,4 @@
 void main() {
-    int64 x = 9223372036854775807;
+    int32 x = 256;
     println(x as string);
 }
