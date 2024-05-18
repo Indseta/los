@@ -100,17 +100,20 @@ std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"{"})) return scope_declaration();
     if (match({"if", "else"})) return conditional_statement();
     if (match({"while"})) return while_loop_statement();
+    if (match({"return"})) return return_statement();
 
-    if (peek().category == Lexer::IDENTIFIER) {
+    if (peek().category == Lexer::IDENTIFIER) { // Callbacks
         if (match_next({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment();
         if (match_next({"("})) return function_call();
     }
 
-    if (match_key()) { // Final
+    if (match_key()) { // Declarations
         if (peek().category == Lexer::IDENTIFIER) {
             if (match_next({"="})) return variable_declaration();
         }
     }
+
+    if (match({";"})) return std::make_unique<EmptyStatement>();
 
     return expression();
 }
@@ -213,6 +216,18 @@ std::unique_ptr<Parser::Node> Parser::while_loop_statement() {
     loop_statement->statement = std::move(statement());
     return loop_statement;
 }
+
+std::unique_ptr<Parser::Node> Parser::return_statement() {
+    auto return_statement = std::make_unique<ReturnStatement>();
+    if (peek().value == ";") {
+        return_statement->expr = std::make_unique<EmptyStatement>();
+    } else {
+        return_statement->expr = std::move(expression());
+    }
+    consume(";", "Expected ';' after statement");
+    return return_statement;
+}
+
 
 std::unique_ptr<Parser::Node> Parser::function_call() {
     auto function = std::make_unique<FunctionCall>(advance().value);
@@ -324,7 +339,13 @@ std::unique_ptr<Parser::Node> Parser::primary() {
     } else if (peek().category == Lexer::IDENTIFIER) {
         if (next().value == "(") {
             auto function = std::make_unique<FunctionCall>(advance().value);
-            consume("(", "Expected '('");
+            advance();
+            while (peek().value != ")") {
+                function->args.push_back(std::move(expression()));
+                if (peek().value != ")") {
+                    consume(",", "Expected ','");
+                }
+            }
             consume(")", "Expected ')'");
             return function;
         } else {
@@ -335,7 +356,6 @@ std::unique_ptr<Parser::Node> Parser::primary() {
         consume(")", "Expected ')' after expression");
         return expr;
     }
-    std::cout << tokens[current - 2].value << previous().value << peek().value << " < ";
     error("Unexpected token '" + peek().value + "'");
 }
 

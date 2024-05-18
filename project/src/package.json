@@ -1,0 +1,18 @@
+{
+    "project": {
+        "id": "project",
+        "name": "Project name",
+        "version": "1.0.0"
+    },
+    "detail": {
+        "src": "./src/main",
+        "out": "./bin/main",
+        "worker": 0
+    },
+    "libs": [
+        {
+            "id": "glfw",
+            "version": "3.3.10"
+        }
+    ]
+}

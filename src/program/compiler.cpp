@@ -106,6 +106,8 @@ void Compiler::compile(const IRGenerator &ir_generator) {
                     file_stream << '\t' << "cmove " << Cmove_instr->dst << ", " << Cmove_instr->src << '\n';
                 } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction.get())) {
                     file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
+                } else if (const auto *jmp_instr = dynamic_cast<const IRGenerator::Jmp*>(instruction.get())) {
+                    file_stream << '\t' << "jmp " << jmp_instr->dst << '\n';
                 } else if (const auto *leave_instr = dynamic_cast<const IRGenerator::Leave*>(instruction.get())) {
                     file_stream << '\t' << "leave" << '\n';
                 } else if (const auto *ret_instr = dynamic_cast<const IRGenerator::Ret*>(instruction.get())) {

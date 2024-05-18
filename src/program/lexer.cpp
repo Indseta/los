@@ -2,6 +2,7 @@
 
 const std::vector<std::string> Lexer::keywords = {
     "use",
+    "module",
 
     "if",
     "else",
@@ -13,11 +14,14 @@ const std::vector<std::string> Lexer::keywords = {
     "break",
     "continue",
 
-    "void",
     "static",
     "final",
     "persistent",
 
+    "new",
+    "delete",
+
+    "in",
     "as",
 };
 
@@ -25,14 +29,18 @@ const std::vector<std::string> Lexer::operators = {
     "=",
     "!",
     "+",
-    "-",
-    "*",
-    "/",
-    "%",    
     "+=",
+    "-",
     "-=",
+    "*",
     "*=",
+    "**",
+    "**=",
+    "/",
     "/=",
+    "//",
+    "//=",
+    "%",
     "%=",
     "==",
     "!=",
@@ -95,7 +103,7 @@ void Lexer::lex(const std::string &raw) {
         // Keyword, identifier & boolean literal
         if (std::isalpha(c)) {
             ct.value += c;
-            while (i + 1 < raw.length() && (std::isalpha(raw[i + 1]) || std::isdigit(raw[i + 1]))) {
+            while (i + 1 < raw.length() && (std::isalpha(raw[i + 1]) || std::isdigit(raw[i + 1]) || raw[i + 1] == '_')) {
                 ct.value += raw[++i];
             }
             if (ct.value == "false" || ct.value == "true") {
@@ -158,11 +166,12 @@ void Lexer::lex(const std::string &raw) {
             continue;
         }
 
-        // Unkown token
-        std::string msg = "Unkown token: ";
-        msg += ct.value;
+        // Unknown token
         success = false;
-        throw std::runtime_error(msg);
+        for (const auto &t : tokens) {
+            std::cout << t.value << '\n';
+        }
+        throw std::runtime_error("Unknown token: " + ct.value);
     }
 }
 

@@ -176,6 +176,11 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Jmp : public Instruction {
+        Jmp(const std::string &dst);
+        void log() const override;
+        std::string dst;
+    };
     struct Leave : public Instruction {
         Leave();
         void log() const override;
@@ -210,7 +215,7 @@ private:
     void evaluate_wrapper_statement(const Parser::Node *statement, Entry *entry);
 
     void evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info);
-    void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, StackInfo &stack_info);
+    void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, const std::string &target, StackInfo &stack_info);
     void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info);
 

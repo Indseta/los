@@ -1,4 +1,7 @@
+string to_string(int32 value) {
+    return value as string;
+}
+
 void main() {
-    int32 x = 256;
-    println(x as string);
+    println(to_string(2387));
 }

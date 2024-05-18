@@ -6,6 +6,11 @@ IRGenerator::IRGenerator(const Parser &parser) {
 }
 
 void IRGenerator::generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &ast) {
+    auto end = std::make_unique<Entry>("end");
+    end.get()->instructions.push_back(std::make_unique<Leave>());
+    end.get()->instructions.push_back(std::make_unique<Ret>());
+    text.declarations.push_back(std::move(end));
+
     for (const auto &t : ast) {
         evaluate_global_statement(t.get());
     }
@@ -32,6 +37,7 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
     }
 
     auto entry = std::make_unique<Entry>(identifier);
+    entry->type = decl->type;
 
     if (!is_main) {
         int offset = 16;
@@ -49,9 +55,8 @@ void IRGenerator::evaluate_function_declaration(const Parser::FunctionDeclaratio
 
     evaluate_wrapper_statement(decl->statement.get(), entry.get());
 
-    entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
-    entry.get()->instructions.push_back(std::make_unique<Leave>());
-    entry.get()->instructions.push_back(std::make_unique<Ret>());
+    if (is_main) entry.get()->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+    entry.get()->instructions.push_back(std::make_unique<Jmp>("end"));
 
     text.declarations.push_back(std::move(entry));
 }
@@ -82,8 +87,13 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         nested_stack_info.size = align_by(nested_stack_info.size, 16);
         entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", std::to_string(nested_stack_info.size)));
         entry->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(nested_stack_info.size)));
+    } else if (const auto *end = dynamic_cast<const Parser::ReturnStatement*>(statement)) {
+        const auto type_info = get_type_info(end->expr.get(), entry, stack_info);
+        const auto reg = get_registry("rax", type_info.size);
+        entry->instructions.push_back(std::make_unique<Xor>("rax", "rax"));
+        evaluate_expr(end->expr.get(), entry, reg, stack_info);
     } else if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
-        evaluate_function_call(call, entry, stack_info);
+        evaluate_function_call(call, entry, "rax", stack_info);
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
         evaluate_variable_declaration(decl, entry, stack_info);
     } else if (const auto *assign = dynamic_cast<const Parser::VariableAssignment*>(statement)) {
@@ -95,7 +105,7 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
     }
 }
 
-void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, StackInfo &stack_info) {
+void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, const std::string &target, StackInfo &stack_info) {
     if (call->identifier == "println") {
         for (int i = 0; i < call->args.size(); ++i) {
             const auto &arg = call->args[i];
@@ -129,6 +139,7 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
         for (int i = 0; i < text.declarations.size(); ++i) {
             if (auto *decl = dynamic_cast<Entry*>(text.declarations[i].get())) {
                 std::string other_id = decl->id;
+                std::string other_type = decl->type;
                 if (other_id == identifier) {
                     int alloc_at = entry->instructions.size();
                     int offset = 0;
@@ -148,6 +159,7 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
                     entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", res_size));
                     entry->instructions.push_back(std::make_unique<Call>(identifier));
                     entry->instructions.push_back(std::make_unique<Add>("rsp", res_size));
+                    entry->instructions.push_back(std::make_unique<Mov>(target, get_registry("rax", get_data_size(decl->type))));
                     return;
                 }
             }
@@ -195,6 +207,8 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         evaluate_cast_operation(operation, entry, target, stack_info);
     } else if (const auto *call = dynamic_cast<const Parser::VariableCall*>(expr)) {
         evaluate_variable_call(call, entry, target, stack_info);
+    } else if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+        evaluate_function_call(call, entry, target, stack_info);
     } else if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         entry->instructions.push_back(std::make_unique<Mov>(target, literal->value));
     } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
@@ -205,6 +219,7 @@ void IRGenerator::evaluate_expr(const Parser::Node *expr, Entry *entry, const st
         const auto hash = get_hash(value + terminator, "c");
         push_unique(std::make_unique<Db>(hash, value, terminator), data);
         entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
+    } else if (const auto *literal = dynamic_cast<const Parser::EmptyStatement*>(expr)) {
     } else {
         success = false;
         throw std::runtime_error("Unsupported expression encountered.");
@@ -269,35 +284,53 @@ void IRGenerator::evaluate_unary_operation(const Parser::UnaryOperation *operati
 }
 
 void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    const auto type_info = get_type_info(operation->left.get(), entry, stack_info);
-    const std::string cast_type = operation->right;
-    if (cast_type == "string") {
-        if (type_info.type == IntegralType::STRING) {
+    const auto org_type = get_type_info(operation->left.get(), entry, stack_info);
+    const auto cast_type = get_type_info(operation->right);
+    if (cast_type.type == IntegralType::BOOL) {
+        if (org_type.type == IntegralType::STRING) {
+        } else if (org_type.type == IntegralType::INT) {
+        } else if (org_type.type == IntegralType::UINT) {
+        } else if (org_type.type == IntegralType::BOOL) {
+        }
+    } else if (cast_type.type == IntegralType::UINT) {
+        if (org_type.type == IntegralType::STRING) {
+        } else if (org_type.type == IntegralType::INT) {
+        } else if (org_type.type == IntegralType::UINT) {
+        } else if (org_type.type == IntegralType::BOOL) {
+        }
+    } else if (cast_type.type == IntegralType::INT) {
+        if (org_type.type == IntegralType::STRING) {
+        } else if (org_type.type == IntegralType::INT) {
+        } else if (org_type.type == IntegralType::UINT) {
+        } else if (org_type.type == IntegralType::BOOL) {
+        }
+    } else if (cast_type.type == IntegralType::STRING) {
+        if (org_type.type == IntegralType::STRING) {
             evaluate_expr(operation->left.get(), entry, target, stack_info);
-        } else if (type_info.type == IntegralType::INT) {
-            const std::string temp_reg = get_registry("rsi", type_info.size);
+        } else if (org_type.type == IntegralType::INT) {
+            const std::string temp_reg = get_registry("rsi", org_type.size);
             evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
-            if (type_info.size < 8) entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
+            if (org_type.size < 8) entry->instructions.push_back(std::make_unique<Movsx>("rdx", temp_reg));
             else entry->instructions.push_back(std::make_unique<Mov>("rdx", temp_reg));
 
-            const std::string value = type_info.size >= 8 ? "\"%lld\"" : "\"%d\"";
+            const std::string value = org_type.size >= 8 ? "\"%lld\"" : "\"%d\"";
             const std::string terminator = "0";
 
             const auto hash = get_hash(value + terminator, "c");
             push_unique(std::make_unique<Db>(hash, value, terminator), data);
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
-        } else if (type_info.type == IntegralType::UINT) {
-            std::string temp_reg = get_registry("rsi", type_info.size);
+        } else if (org_type.type == IntegralType::UINT) {
+            std::string temp_reg = get_registry("rsi", org_type.size);
             evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
             entry->instructions.push_back(std::make_unique<Mov>("rdx", "rsi"));
 
-            const std::string value = type_info.size >= 8 ? "\"%llu\"" : "\"%u\"";
+            const std::string value = org_type.size >= 8 ? "\"%llu\"" : "\"%u\"";
             const std::string terminator = "0";
 
             const auto hash = get_hash(value + terminator, "c");
             push_unique(std::make_unique<Db>(hash, value, terminator), data);
             entry->instructions.push_back(std::make_unique<Lea>(target, "[" + hash + "]"));
-        } else if (type_info.type == IntegralType::BOOL) {
+        } else if (org_type.type == IntegralType::BOOL) {
             const std::string true_value = "\"true\"";
             const std::string false_value = "\"false\"";
             const std::string terminator = "0";
@@ -307,7 +340,7 @@ void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation
             push_unique(std::make_unique<Db>(true_hash, true_value, terminator), data);
             push_unique(std::make_unique<Db>(false_hash, false_value, terminator), data);
 
-            const std::string temp_reg = get_registry("rsi", type_info.size);
+            const std::string temp_reg = get_registry("rsi", org_type.size);
 
             evaluate_expr(operation->left.get(), entry, temp_reg, stack_info);
 
@@ -472,8 +505,22 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr,
             success = false;
             throw std::runtime_error("Variable not declared or inaccessible: '" + call->identifier + "'");
         }
+    } else if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(expr)) {
+        std::string identifier = call->identifier;
+        for (const auto &arg : call->args) {
+            auto type_info = get_type_info(arg.get(), entry, stack_info);
+            identifier += type_info.name;
+        }
+        identifier = get_hash(identifier, "f");
+        for (int i = 0; i < text.declarations.size(); ++i) {
+            if (auto *decl = dynamic_cast<Entry*>(text.declarations[i].get())) {
+                if (decl->id == identifier) {
+                    type_info = get_type_info(decl->type);
+                }
+            }
+        }
     } else if (const auto *operation = dynamic_cast<const Parser::UnaryOperation*>(expr)) {
-        const auto type_info = get_type_info(operation->value.get(), entry, stack_info);
+        type_info = get_type_info(operation->value.get(), entry, stack_info);
     } else if (const auto *operation = dynamic_cast<const Parser::BinaryOperation*>(expr)) {
         const auto left_type_info = get_type_info(operation->left.get(), entry, stack_info);
         const auto right_type_info = get_type_info(operation->right.get(), entry, stack_info);
@@ -970,6 +1017,15 @@ void IRGenerator::Xor::log() const {
     std::cout << dst;
     std::cout << "', src: '";
     std::cout << src;
+    std::cout << "')" << '\n';
+}
+
+IRGenerator::Jmp::Jmp(const std::string &dst) : dst(dst) {}
+
+void IRGenerator::Jmp::log() const {
+    std::cout << "jmp: (";
+    std::cout << "dst: '";
+    std::cout << dst;
     std::cout << "')" << '\n';
 }
 

@@ -1,15 +1,14 @@
-// libraries (vector, thread, random, chrono, memory)
-use vector; // vector, range
+// libraries (thread, random, time, memory)
 
-
-void log_vector(ref<vector<int32>> target) {
-	int32 product = 1;
-    for (i in target) {
-        product *= i;
-        sum++;
+module {
+    void log_array(ref<array<int32>> target) {
+        int32 product = 1;
+        for (i in target) {
+            product *= i;
+            sum += 1;
+        }
     }
 }
-
 
 void main() {
     // Single line comment
@@ -31,20 +30,20 @@ void main() {
 
     for (i in range(0, 10)) {
         product *= i;
-        sum++;
+        sum += 1;
     }
 
-    System.println("Sum: " + sum as string);
-    System.println(f"Product: ${product}");
+    println("Sum: " + sum as string);
+    println(f"Product: ${product}");
 
-    vector<int32> numbers = {0, 10, 26, 2};
+    array<int32> numbers = {0, 10, 26, 2};
     numbers.push_back(27);
-    log_vector(numbers);
+    log_array(numbers);
 
     string greet = "world";
-    System.println(f"Hello ${greet}");
+    println(f"Hello ${greet}");
 
     ptr<string> ptr_greet = new "world";
-    System.println(f"Hello ${greet}");
+    println(f"Hello ${greet}");
     delete ptr_greet;
 }

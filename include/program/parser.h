@@ -145,6 +145,17 @@ public:
         std::unique_ptr<Node> statement;
     };
 
+    struct ReturnStatement : public Node {
+        ReturnStatement() : expr(nullptr) {}
+        ReturnStatement(std::unique_ptr<Node> expr) : expr(std::move(expr)) {}
+        void log() const override {
+            std::cout << "ReturnStatement: (expr: (";
+            expr->log();
+            std::cout << "))";
+        }
+        std::unique_ptr<Node> expr;
+    };
+
     struct FunctionCall : public Node {
         FunctionCall(const std::string &identifier) : identifier(std::move(identifier)) {}
         void log() const override {
@@ -255,6 +266,7 @@ private:
     std::unique_ptr<Node> variable_declaration();
     std::unique_ptr<Node> variable_assignment();
     std::unique_ptr<Node> while_loop_statement();
+    std::unique_ptr<Node> return_statement();
     std::unique_ptr<Node> function_call();
 
     std::unique_ptr<Node> expression();
