@@ -1,5 +1,21 @@
 // libraries (thread, random, time, memory)
 
+class Greet {
+    int32 member;
+
+    constructor() {
+        println("Calling class constructor.");
+    }
+
+    destructor() {
+        println("Calling class destructor.");
+    }
+
+    public void hello() {
+        println("Hello, world.");
+    }
+}
+
 module {
     void log_array(ref<array<int32>> target) {
         int32 product = 1;

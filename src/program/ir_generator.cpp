@@ -289,20 +289,29 @@ void IRGenerator::evaluate_cast_operation(const Parser::CastOperation *operation
     if (cast_type.type == IntegralType::BOOL) {
         if (org_type.type == IntegralType::STRING) {
         } else if (org_type.type == IntegralType::INT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::UINT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::BOOL) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         }
     } else if (cast_type.type == IntegralType::UINT) {
         if (org_type.type == IntegralType::STRING) {
         } else if (org_type.type == IntegralType::INT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::UINT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::BOOL) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         }
     } else if (cast_type.type == IntegralType::INT) {
         if (org_type.type == IntegralType::STRING) {
         } else if (org_type.type == IntegralType::INT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::UINT) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         } else if (org_type.type == IntegralType::BOOL) {
+            evaluate_expr(operation->left.get(), entry, target, stack_info);
         }
     } else if (cast_type.type == IntegralType::STRING) {
         if (org_type.type == IntegralType::STRING) {
@@ -490,6 +499,10 @@ const IRGenerator::TypeInfo IRGenerator::get_type_info(const Parser::Node *expr,
     TypeInfo type_info;
     if (const auto *literal = dynamic_cast<const Parser::IntegerLiteral*>(expr)) {
         type_info.name = "int32";
+        type_info.type = get_integral_type(type_info.name);
+        type_info.size = get_data_size(type_info.name);
+    } else if (const auto *literal = dynamic_cast<const Parser::BooleanLiteral*>(expr)) {
+        type_info.name = "bool";
         type_info.type = get_integral_type(type_info.name);
         type_info.size = get_data_size(type_info.name);
     } else if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(expr)) {

@@ -2,7 +2,12 @@
 
 const std::vector<std::string> Lexer::keywords = {
     "use",
+
     "module",
+    "class",
+
+    "constructor",
+    "destructor",
 
     "if",
     "else",
@@ -14,6 +19,8 @@ const std::vector<std::string> Lexer::keywords = {
     "break",
     "continue",
 
+    "public",
+    "private",
     "static",
     "final",
     "persistent",

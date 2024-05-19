@@ -1,7 +1,17 @@
-string to_string(int32 value) {
-    return value as string;
+class Greet {
+    int32 member = 200;
+
+    constructor() {
+        println("Calling class constructor.");
+    }
+
+    void hello() {
+        println("Hello world");
+        println(member as string);
+    }
 }
 
 void main() {
-    println(to_string(2387));
+    greet.hello();
+    println("Hello world");
 }

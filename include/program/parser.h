@@ -173,16 +173,6 @@ public:
         std::vector<std::unique_ptr<Node>> args;
     };
 
-    struct Entry : public Node {
-        Entry() : statement(std::make_unique<EmptyStatement>()) {}
-        void log() const override {
-            std::cout << "Entry: (statement: (";
-            statement->log();
-            std::cout << "))";
-        }
-        std::unique_ptr<Node> statement;
-    };
-
     struct ConditionalStatement : public Node {
         ConditionalStatement() : pass_statement(std::make_unique<EmptyStatement>()), fail_statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
@@ -233,6 +223,40 @@ public:
         std::unique_ptr<Node> statement;
     };
 
+    struct ClassMember : public Node {
+        ClassMember() : statement(std::make_unique<EmptyStatement>()) {}
+        std::unique_ptr<Node> statement;
+
+        enum {
+            PUBLIC,
+            PROTECTED,
+            PRIVATE,
+        } access;
+
+        void log() const override {
+            std::string access_str;
+            if (access == PUBLIC) access_str = "public";
+            else if (access == PROTECTED) access_str = "protected";
+            else if (access == PRIVATE) access_str = "private";
+
+            std::cout << "ClassMember: (access: " << access_str << ", statement: (";
+            statement->log();
+            std::cout << ")";
+        }
+    };
+
+    struct ClassDeclaration : public Node {
+        ClassDeclaration() {}
+        void log() const override {
+            std::cout << "ClassDeclaration: (identifier: '" << identifier << "', statement:" << '\n';
+            statement->log();
+            std::cout << ")";
+        }
+
+        std::string identifier;
+        std::unique_ptr<Node> statement;
+    };
+
     Parser(const Lexer &lexer);
     const std::vector<std::unique_ptr<Node>>& get() const;
 
@@ -250,6 +274,7 @@ private:
     const Lexer::Token& peek() const;
     const Lexer::Token& previous() const;
     const Lexer::Token& next() const;
+    const Lexer::Token& rewind();
     const Lexer::Token& advance();
     const Lexer::Token& consume(const std::string& type, const std::string& message);
 
@@ -260,7 +285,13 @@ private:
     std::unique_ptr<Node> global_statement();
     std::unique_ptr<Node> function_declaration();
 
+    std::unique_ptr<Node> class_declaration();
+    std::unique_ptr<Node> class_statement();
+    std::unique_ptr<Node> constructor_declaration();
+    std::unique_ptr<Node> destructor_declaration();
+
     std::unique_ptr<Node> statement();
+    std::unique_ptr<Node> modular_statement();
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
     std::unique_ptr<Node> variable_declaration();

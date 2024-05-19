@@ -34,6 +34,11 @@ const Lexer::Token& Parser::next() const {
     }
 }
 
+const Lexer::Token& Parser::rewind() {
+    if (!at_end()) current--;
+    return next();
+}
+
 const Lexer::Token& Parser::advance() {
     if (!at_end()) current++;
     return previous();
@@ -88,9 +93,12 @@ void Parser::error(const std::string &msg) {
 }
 
 std::unique_ptr<Parser::Node> Parser::global_statement() {
-    if (match({"void"}) || match_key()) { // Final
+    if (match({"class"})) return class_declaration();
+    if (peek().category == Lexer::IDENTIFIER) {
+        advance();
         if (peek().category == Lexer::IDENTIFIER) {
-            if (match_next({"("})) return function_declaration();
+            advance();
+            if (match({"("})) return function_declaration();
         }
     }
     throw std::runtime_error("Unexpected global statement encountered.");
@@ -102,43 +110,150 @@ std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"while"})) return while_loop_statement();
     if (match({"return"})) return return_statement();
 
-    if (peek().category == Lexer::IDENTIFIER) { // Callbacks
-        if (match_next({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment();
-        if (match_next({"("})) return function_call();
+    if (peek().category == Lexer::IDENTIFIER) {
+        return modular_statement();
     }
 
-    if (match_key()) { // Declarations
-        if (peek().category == Lexer::IDENTIFIER) {
-            if (match_next({"="})) return variable_declaration();
-        }
-    }
+    if (match({";"})) return std::make_unique<EmptyStatement>();
 
     if (match({";"})) return std::make_unique<EmptyStatement>();
 
     return expression();
 }
 
+std::unique_ptr<Parser::Node> Parser::modular_statement() {
+    if (match({"."})) {
+        return modular_statement();
+    }
+
+    if (peek().category == Lexer::IDENTIFIER) {
+        advance();
+        if (match({"="})) return variable_declaration();
+    }
+
+    if (match({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment();
+    if (match({"("})) return function_call();
+
+    return expression();
+}
+
 std::unique_ptr<Parser::Node> Parser::variable_declaration() {
-    std::string op = previous().value;
-    std::string identifier;
+    for (int i = 0; i < 3; ++i) rewind();
+    std::string type, identifier;
+    if (peek().category == Lexer::IDENTIFIER) {
+        type = advance().value;
+    } else {
+        error("Expected variable type");
+    }
     if (peek().category == Lexer::IDENTIFIER) {
         identifier = advance().value;
     } else {
-        error("Expected identifier");
+        error("Expected variable identifier");
     }
     consume("=", "Expected '='");
     auto value = expression();
     consume(";", "Expected ';' after statement");
-    return std::make_unique<VariableDeclaration>(op, identifier, std::move(value));
+    return std::make_unique<VariableDeclaration>(type, identifier, std::move(value));
 }
 
 std::unique_ptr<Parser::Node> Parser::function_declaration() {
     auto function = std::make_unique<FunctionDeclaration>();
-    function->type = previous().value;
+    for (int i = 0; i < 3; ++i) rewind();
+    if (peek().category == Lexer::IDENTIFIER) {
+        function->type = advance().value;
+    } else {
+        error("Expected function type");
+    }
     if (peek().category == Lexer::IDENTIFIER) {
         function->identifier = advance().value;
     } else {
-        error("Expected identifier");
+        error("Expected function identifer");
+    }
+    consume("(", "Expected '('");
+    while (peek().value != ")") {
+        function->args_types.push_back(advance().value);
+        function->args_ids.push_back(advance().value);
+        if (peek().value != ")") {
+            consume(",", "Expected ','");
+        }
+    }
+    consume(")", "Expected ')' after statement");
+    function->statement = std::move(statement());
+    return function;
+}
+
+std::unique_ptr<Parser::Node> Parser::class_declaration() {
+    auto decl = std::make_unique<ClassDeclaration>();
+    decl->identifier = advance().value;
+    if (match({"{"})) {
+        auto scope = std::make_unique<ScopeDeclaration>();
+        while (!match({"}"})) {
+            scope->ast.push_back(std::move(class_statement()));
+        }
+        decl->statement = std::move(scope);
+    } else {
+        decl->statement = std::move(class_statement());
+    }
+    return decl;
+}
+
+std::unique_ptr<Parser::Node> Parser::class_statement() {
+    auto member = std::make_unique<ClassMember>();
+
+    if (match({"public", "protected", "private"})) {
+        if (previous().value == "public") member->access = ClassMember::PUBLIC;
+        if (previous().value == "protected") member->access = ClassMember::PROTECTED;
+        if (previous().value == "private") member->access = ClassMember::PRIVATE;
+    } else {
+        member->access = ClassMember::PRIVATE;
+    }
+
+    if (match({"constructor"})) member->statement = constructor_declaration();
+    else if (match({"destructor"})) member->statement = destructor_declaration();
+    else if (peek().category == Lexer::IDENTIFIER) {
+        advance();
+        if (peek().category == Lexer::IDENTIFIER) {
+            advance();
+            if (match({"="})) member->statement = variable_declaration();
+            else if (match({"("})) member->statement = function_declaration();
+        }
+    } else {
+        throw std::runtime_error("Unexpected class member statement encountered: " + peek().value);
+    }
+
+    return member;
+}
+
+std::unique_ptr<Parser::Node> Parser::constructor_declaration() {
+    auto function = std::make_unique<FunctionDeclaration>();
+    rewind();
+    if (peek().category == Lexer::KEYWORD) {
+        function->type = peek().value;
+        function->identifier = advance().value;
+    } else {
+        error("Expected function type");
+    }
+    consume("(", "Expected '('");
+    while (peek().value != ")") {
+        function->args_types.push_back(advance().value);
+        function->args_ids.push_back(advance().value);
+        if (peek().value != ")") {
+            consume(",", "Expected ','");
+        }
+    }
+    consume(")", "Expected ')' after statement");
+    function->statement = std::move(statement());
+    return function;
+}
+
+std::unique_ptr<Parser::Node> Parser::destructor_declaration() {
+    auto function = std::make_unique<FunctionDeclaration>();
+    rewind();
+    if (peek().category == Lexer::KEYWORD) {
+        function->type = peek().value;
+        function->identifier = advance().value;
+    } else {
+        error("Expected function type");
     }
     consume("(", "Expected '('");
     while (peek().value != ")") {
@@ -188,10 +303,9 @@ std::unique_ptr<Parser::Node> Parser::variable_assignment() {
 
 std::unique_ptr<Parser::Node> Parser::scope_declaration() {
     auto scope = std::make_unique<ScopeDeclaration>();
-    while (peek().value != "}") {
+    while (!match({"}"})) {
         scope->ast.push_back(std::move(statement()));
     }
-    advance(); // TODO: consume
     return scope;
 }
 
@@ -230,15 +344,15 @@ std::unique_ptr<Parser::Node> Parser::return_statement() {
 
 
 std::unique_ptr<Parser::Node> Parser::function_call() {
+    for (int i = 0; i < 2; ++i) rewind();
     auto function = std::make_unique<FunctionCall>(advance().value);
-    advance();
-    while (peek().value != ")") {
+    consume("(", "Expected '('");
+    while (!match({")"})) {
         function->args.push_back(std::move(expression()));
         if (peek().value != ")") {
             consume(",", "Expected ','");
         }
     }
-    advance();
     consume(";", "Expected ';' after statement");
     return function;
 }
