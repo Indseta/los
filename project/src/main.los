@@ -1,7 +1,7 @@
 void main() {
-    int32 num = 100;
-    if (num == 100) {
-        int32 x = 20000;
-        println(x as string);
+    int32 i = 0;
+    while (i < 10) {
+        println(i as string);
+        i += 1;
     }
 }

@@ -274,6 +274,7 @@ private:
     void evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info);
     void evaluate_class_statement(const Parser::Node *statement, Entry *declarator, ClassInfo *class_info);
     void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, const std::string &target, StackInfo &stack_info);
+    void evaluate_while_statement(const Parser::WhileLoopStatement *statement, Entry *entry, StackInfo &stack_info);
     void evaluate_conditional_statement(const Parser::ConditionalStatement *statement, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info);
@@ -311,6 +312,7 @@ private:
     std::vector<std::unique_ptr<Declaration>> labels;
 
     int cnd_ix;
+    int while_ix;
 
     bool success;
 };

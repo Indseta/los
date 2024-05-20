@@ -281,6 +281,7 @@ std::unique_ptr<Parser::Node> Parser::destructor_declaration() {
 }
 
 std::unique_ptr<Parser::Node> Parser::variable_assignment(const std::string &mod) {
+    for (int i = 0; i < 2; ++i) rewind();
     std::string identifier = advance().value;
     std::string op;
     if (peek().category == Lexer::OPERATOR) {

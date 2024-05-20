@@ -2,6 +2,7 @@
 
 IRGenerator::IRGenerator(const Parser &parser) {
     success = true;
+    while_ix = 0;
     cnd_ix = 0;
     generate_ir(parser.get());
 }
@@ -131,8 +132,10 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
             evaluate_expr(exit->expr.get(), entry, reg, stack_info);
             entry->instructions.push_back(std::make_unique<Jmp>("exit"));
         }
-    } else if (const auto *cond = dynamic_cast<const Parser::ConditionalStatement*>(statement)) {
-        evaluate_conditional_statement(cond, entry, stack_info);
+    } else if (const auto *loop = dynamic_cast<const Parser::WhileLoopStatement*>(statement)) {
+        evaluate_while_statement(loop, entry, stack_info);
+    } else if (const auto *cnd = dynamic_cast<const Parser::ConditionalStatement*>(statement)) {
+        evaluate_conditional_statement(cnd, entry, stack_info);
     } else if (const auto *call = dynamic_cast<const Parser::FunctionCall*>(statement)) {
         evaluate_function_call(call, entry, "rax", stack_info);
     } else if (const auto *decl = dynamic_cast<const Parser::VariableDeclaration*>(statement)) {
@@ -144,6 +147,49 @@ void IRGenerator::evaluate_statement(const Parser::Node *statement, Entry *entry
         success = false;
         throw std::runtime_error("Unexpected statement encountered.");
     }
+}
+
+void IRGenerator::evaluate_while_statement(const Parser::WhileLoopStatement *statement, Entry *entry, StackInfo &stack_info) {
+    std::string idc = ".wlc" + std::to_string(while_ix);
+    std::string idm = ".wlm" + std::to_string(while_ix);
+    std::string ide = ".wle" + std::to_string(while_ix);
+
+    entry->instructions.push_back(std::make_unique<Jmp>(idc));
+    entry->instructions.push_back(std::make_unique<Label>(ide));
+
+
+    auto wlc = std::make_unique<Entry>(idc);
+    wlc->type = "void";
+
+    const std::string reg = get_registry("rcx", get_type_info(statement->condition.get(), wlc.get(), stack_info).size);
+    evaluate_expr(statement->condition.get(), wlc.get(), reg, stack_info);
+    wlc->instructions.push_back(std::make_unique<Cmp>(reg, "1"));
+    wlc->instructions.push_back(std::make_unique<Je>(idm));
+    wlc->instructions.push_back(std::make_unique<Jne>(ide));
+
+    auto wlm = std::make_unique<Entry>(idm);
+    wlm->type = "void";
+
+    StackInfo nested_stack_info = stack_info;
+    int alloc_at = wlm->instructions.size();
+
+    if (const auto *decl = dynamic_cast<const Parser::ScopeDeclaration*>(statement->statement.get())) {
+        for (const auto &t : decl->ast) {
+            evaluate_statement(t.get(), wlm.get(), nested_stack_info);
+        }
+    } else {
+        evaluate_statement(statement->statement.get(), wlm.get(), nested_stack_info);
+    }
+
+    nested_stack_info.size = align_by(nested_stack_info.size, 16);
+    wlm->instructions.insert(wlm->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", std::to_string(nested_stack_info.size)));
+    wlm->instructions.push_back(std::make_unique<Add>("rsp", std::to_string(nested_stack_info.size)));
+    wlm->instructions.push_back(std::make_unique<Jmp>(idc));
+
+    labels.push_back(std::move(wlc));
+    labels.push_back(std::move(wlm));
+
+    ++while_ix;
 }
 
 void IRGenerator::evaluate_conditional_statement(const Parser::ConditionalStatement *statement, Entry *entry, StackInfo &stack_info) {

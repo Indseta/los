@@ -19,27 +19,33 @@ main:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 48
-	mov edx, 100
+	mov edx, 0
 	mov dword [rbp - 0], edx
-	mov eax, [rbp - 0]
-	mov ebx, 100
-	cmp eax, ebx
-	sete al
-	mov ecx, eax
-	cmp cl, 1
-	je .cndm0
-.cnde0:
+	jmp .wlc0
+.wle0:
 	xor rax, rax
 	jmp exit
-.cndm0:
+.wlc0:
+	mov eax, [rbp - 0]
+	mov ebx, 10
+	cmp eax, ebx
+	setl al
+	mov ecx, eax
+	cmp cl, 1
+	je .wlm0
+	jne .wle0
+.wlm0:
 	sub rsp, 16
-	mov edx, 20000
-	mov dword [rbp - 4], edx
-	mov esi, [rbp - 4]
+	mov esi, [rbp - 0]
 	movsx rdx, esi
 	lea rcx, [ca7c3942]
 	call printf
 	lea rcx, [c30fa8d6]
 	call printf
+	mov eax, [rbp - 0]
+	mov ebx, 1
+	add eax, ebx
+	mov edx, eax
+	mov dword [rbp - 0], edx
 	add rsp, 16
-	jmp .cnde0
+	jmp .wlc0
