@@ -9,7 +9,7 @@
 
 class Compiler {
 public:
-    Compiler(const IRGenerator &ir_generator, const std::string &fp);
+    Compiler(const IRGenerator &ir_generator, const std::string &org);
     ~Compiler();
 
     const bool& get_success() const;
@@ -17,6 +17,8 @@ public:
 
 private:
     void compile(const IRGenerator &ir_generator);
+
+    void compile_instruction(const IRGenerator::Instruction *instruction);
 
     int run_cmd(const std::string &cmd);
 

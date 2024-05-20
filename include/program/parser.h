@@ -291,14 +291,14 @@ private:
     std::unique_ptr<Node> destructor_declaration();
 
     std::unique_ptr<Node> statement();
-    std::unique_ptr<Node> modular_statement();
+    std::unique_ptr<Node> modular_statement(std::string &mod);
     std::unique_ptr<Node> conditional_statement();
     std::unique_ptr<Node> scope_declaration();
-    std::unique_ptr<Node> variable_declaration();
-    std::unique_ptr<Node> variable_assignment();
+    std::unique_ptr<Node> variable_declaration(const bool &initialized);
+    std::unique_ptr<Node> variable_assignment(const std::string &mod);
     std::unique_ptr<Node> while_loop_statement();
     std::unique_ptr<Node> return_statement();
-    std::unique_ptr<Node> function_call();
+    std::unique_ptr<Node> function_call(const std::string &mod);
 
     std::unique_ptr<Node> expression();
     std::unique_ptr<Node> equality();

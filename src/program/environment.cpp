@@ -1,12 +1,12 @@
 #include <program/environment.h>
 // #define NLOG
 
-void Environment::run(const std::string &fp) {
+void Environment::run(const std::string &src, const std::string &out, const bool &should_run) {
 #ifndef NLOG
     auto start = std::chrono::high_resolution_clock::now();
 #endif
 
-    Source source(fp);
+    Source source(src);
     if (!source.get_success()) {
         std::cout << "Exiting due to read error." << '\n';
         return;
@@ -42,7 +42,7 @@ void Environment::run(const std::string &fp) {
     ir_generator.log();
 #endif
 
-    Compiler compiler(ir_generator, fp);
+    Compiler compiler(ir_generator, out);
     if (!compiler.get_success()) {
         std::cout << "Exiting due to compile error." << '\n';
         return;
@@ -58,5 +58,5 @@ void Environment::run(const std::string &fp) {
     std::cout << '\n';
     std::cout << " -- Compile result -- " << '\n';  
 #endif
-    compiler.run();
+    if (should_run) compiler.run();
 }

@@ -19,10 +19,19 @@ const std::vector<std::string> Lexer::keywords = {
     "break",
     "continue",
 
+    "secure",
+    "limited",
+    "open",
+
+    "virtual",
+    "override",
+    "extends",
+
     "public",
     "private",
+
     "static",
-    "final",
+    "final", // const
     "persistent",
 
     "new",

@@ -1,6 +1,12 @@
 #include <program/compiler.h>
 
-Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) : fp(fp) {
+Compiler::Compiler(const IRGenerator &ir_generator, const std::string &org) {
+    fp = "";
+    for (const auto &c : org) {
+        if (c == '/') fp += '\\';
+        else fp += c;
+    }
+
     success = true;
 
     file_stream.open(fp + ".asm");
@@ -26,8 +32,8 @@ Compiler::Compiler(const IRGenerator &ir_generator, const std::string &fp) : fp(
         return;
     }
 
-    run_cmd("del " + fp + ".o");
-    run_cmd("del " + fp + ".asm");
+    run_cmd("del \"" + fp + ".o\"");
+    // run_cmd("del \"" + fp + ".asm\"");
 }
 
 Compiler::~Compiler() {
@@ -37,7 +43,7 @@ Compiler::~Compiler() {
 }
 
 void Compiler::run() {
-    run_cmd("call " + fp + ".exe");
+    run_cmd("call \"" + fp + ".exe\"");
 }
 
 void Compiler::compile(const IRGenerator &ir_generator) {
@@ -78,45 +84,78 @@ void Compiler::compile(const IRGenerator &ir_generator) {
         }
     }
     file_stream << '\n';
+    file_stream << "exit:" << '\n';
+    file_stream << '\t' << "leave" << '\n';
+    file_stream << '\t' << "ret" << '\n';
     for (const auto &d : ir_generator.get_text().declarations) {
         if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
             file_stream << entry->id << ':' << '\n';
             for (const auto &instruction : entry->instructions) {
-                if (const auto *push_instr = dynamic_cast<const IRGenerator::Push*>(instruction.get())) {
-                    file_stream << '\t' << "push " << push_instr->src << '\n';
-                } else if (const auto *mov_instr = dynamic_cast<const IRGenerator::Mov*>(instruction.get())) {
-                    file_stream << '\t' << "mov " << mov_instr->dst << ", " << mov_instr->src << '\n';
-                } else if (const auto *movsx_instr = dynamic_cast<const IRGenerator::Movsx*>(instruction.get())) {
-                    file_stream << '\t' << "movsx " << movsx_instr->dst << ", " << movsx_instr->src << '\n';
-                } else if (const auto *lea_instr = dynamic_cast<const IRGenerator::Lea*>(instruction.get())) {
-                    file_stream << '\t' << "lea " << lea_instr->dst << ", " << lea_instr->src << '\n';
-                } else if (const auto *neg_instr = dynamic_cast<const IRGenerator::Neg*>(instruction.get())) {
-                    file_stream << '\t' << "neg " << neg_instr->dst << '\n';
-                } else if (const auto *imul_instr = dynamic_cast<const IRGenerator::Imul*>(instruction.get())) {
-                    file_stream << '\t' << "imul " << imul_instr->dst << ", " << imul_instr->src << '\n';
-                } else if (const auto *idiv_instr = dynamic_cast<const IRGenerator::Idiv*>(instruction.get())) {
-                    file_stream << '\t' << "idiv " << idiv_instr->src << '\n';
-                } else if (const auto *add_instr = dynamic_cast<const IRGenerator::Add*>(instruction.get())) {
-                    file_stream << '\t' << "add " << add_instr->dst << ", " << add_instr->src << '\n';
-                } else if (const auto *sub_instr = dynamic_cast<const IRGenerator::Sub*>(instruction.get())) {
-                    file_stream << '\t' << "sub " << sub_instr->dst << ", " << sub_instr->src << '\n';
-                } else if (const auto *Cmp_instr = dynamic_cast<const IRGenerator::Cmp*>(instruction.get())) {
-                    file_stream << '\t' << "cmp " << Cmp_instr->left << ", " << Cmp_instr->right << '\n';
-                } else if (const auto *Cmove_instr = dynamic_cast<const IRGenerator::Cmove*>(instruction.get())) {
-                    file_stream << '\t' << "cmove " << Cmove_instr->dst << ", " << Cmove_instr->src << '\n';
-                } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction.get())) {
-                    file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
-                } else if (const auto *jmp_instr = dynamic_cast<const IRGenerator::Jmp*>(instruction.get())) {
-                    file_stream << '\t' << "jmp " << jmp_instr->dst << '\n';
-                } else if (const auto *leave_instr = dynamic_cast<const IRGenerator::Leave*>(instruction.get())) {
-                    file_stream << '\t' << "leave" << '\n';
-                } else if (const auto *ret_instr = dynamic_cast<const IRGenerator::Ret*>(instruction.get())) {
-                    file_stream << '\t' << "ret" << '\n';
-                } else if (const auto *call_instr = dynamic_cast<const IRGenerator::Call*>(instruction.get())) {
-                    file_stream << '\t' << "call " << call_instr->id << '\n';
-                }
+                compile_instruction(instruction.get());
             }
         }
+    }
+    for (const auto &d : ir_generator.get_labels()) {
+        if (const auto *entry = dynamic_cast<const IRGenerator::Entry*>(d.get())) {
+            file_stream << entry->id << ':' << '\n';
+            for (const auto &instruction : entry->instructions) {
+                compile_instruction(instruction.get());
+            }
+        }
+    }
+}
+
+void Compiler::compile_instruction(const IRGenerator::Instruction *instruction) {
+    if (const auto *push_instr = dynamic_cast<const IRGenerator::Push*>(instruction)) {
+        file_stream << '\t' << "push " << push_instr->src << '\n';
+    } else if (const auto *mov_instr = dynamic_cast<const IRGenerator::Mov*>(instruction)) {
+        file_stream << '\t' << "mov " << mov_instr->dst << ", " << mov_instr->src << '\n';
+    } else if (const auto *movsx_instr = dynamic_cast<const IRGenerator::Movsx*>(instruction)) {
+        file_stream << '\t' << "movsx " << movsx_instr->dst << ", " << movsx_instr->src << '\n';
+    } else if (const auto *lea_instr = dynamic_cast<const IRGenerator::Lea*>(instruction)) {
+        file_stream << '\t' << "lea " << lea_instr->dst << ", " << lea_instr->src << '\n';
+    } else if (const auto *neg_instr = dynamic_cast<const IRGenerator::Neg*>(instruction)) {
+        file_stream << '\t' << "neg " << neg_instr->dst << '\n';
+    } else if (const auto *imul_instr = dynamic_cast<const IRGenerator::Imul*>(instruction)) {
+        file_stream << '\t' << "imul " << imul_instr->dst << ", " << imul_instr->src << '\n';
+    } else if (const auto *idiv_instr = dynamic_cast<const IRGenerator::Idiv*>(instruction)) {
+        file_stream << '\t' << "idiv " << idiv_instr->src << '\n';
+    } else if (const auto *add_instr = dynamic_cast<const IRGenerator::Add*>(instruction)) {
+        file_stream << '\t' << "add " << add_instr->dst << ", " << add_instr->src << '\n';
+    } else if (const auto *sub_instr = dynamic_cast<const IRGenerator::Sub*>(instruction)) {
+        file_stream << '\t' << "sub " << sub_instr->dst << ", " << sub_instr->src << '\n';
+    } else if (const auto *cmp_instr = dynamic_cast<const IRGenerator::Cmp*>(instruction)) {
+        file_stream << '\t' << "cmp " << cmp_instr->left << ", " << cmp_instr->right << '\n';
+    } else if (const auto *sete_instr = dynamic_cast<const IRGenerator::Sete*>(instruction)) {
+        file_stream << '\t' << "sete " << sete_instr->dst << '\n';
+    } else if (const auto *setne_instr = dynamic_cast<const IRGenerator::Setne*>(instruction)) {
+        file_stream << '\t' << "setne " << setne_instr->dst << '\n';
+    } else if (const auto *setg_instr = dynamic_cast<const IRGenerator::Setg*>(instruction)) {
+        file_stream << '\t' << "setg " << setg_instr->dst << '\n';
+    } else if (const auto *setge_instr = dynamic_cast<const IRGenerator::Setge*>(instruction)) {
+        file_stream << '\t' << "setge " << setge_instr->dst << '\n';
+    } else if (const auto *setl_instr = dynamic_cast<const IRGenerator::Setl*>(instruction)) {
+        file_stream << '\t' << "setl " << setl_instr->dst << '\n';
+    } else if (const auto *setle_instr = dynamic_cast<const IRGenerator::Setle*>(instruction)) {
+        file_stream << '\t' << "setle " << setle_instr->dst << '\n';
+    } else if (const auto *cmove_instr = dynamic_cast<const IRGenerator::Cmove*>(instruction)) {
+        file_stream << '\t' << "cmove " << cmove_instr->dst << ", " << cmove_instr->src << '\n';
+    } else if (const auto *xor_instr = dynamic_cast<const IRGenerator::Xor*>(instruction)) {
+        file_stream << '\t' << "xor " << xor_instr->dst << ", " << xor_instr->src << '\n';
+    } else if (const auto *label_instr = dynamic_cast<const IRGenerator::Label*>(instruction)) {
+        file_stream << label_instr->id << ":" << '\n';
+    } else if (const auto *jmp_instr = dynamic_cast<const IRGenerator::Jmp*>(instruction)) {
+        file_stream << '\t' << "jmp " << jmp_instr->dst << '\n';
+    } else if (const auto *je_instr = dynamic_cast<const IRGenerator::Je*>(instruction)) {
+        file_stream << '\t' << "je " << je_instr->dst << '\n';
+    } else if (const auto *jne_instr = dynamic_cast<const IRGenerator::Jne*>(instruction)) {
+        file_stream << '\t' << "jne " << jne_instr->dst << '\n';
+    } else if (const auto *leave_instr = dynamic_cast<const IRGenerator::Leave*>(instruction)) {
+        file_stream << '\t' << "leave" << '\n';
+    } else if (const auto *ret_instr = dynamic_cast<const IRGenerator::Ret*>(instruction)) {
+        file_stream << '\t' << "ret" << '\n';
+    } else if (const auto *call_instr = dynamic_cast<const IRGenerator::Call*>(instruction)) {
+        file_stream << '\t' << "call " << call_instr->id << '\n';
     }
 }
 

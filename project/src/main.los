@@ -1,17 +1,7 @@
-class Greet {
-    int32 member = 200;
-
-    constructor() {
-        println("Calling class constructor.");
-    }
-
-    void hello() {
-        println("Hello world");
-        println(member as string);
-    }
-}
-
 void main() {
-    greet.hello();
-    println("Hello world");
+    int32 num = 100;
+    if (num == 100) {
+        int32 x = 20000;
+        println(x as string);
+    }
 }

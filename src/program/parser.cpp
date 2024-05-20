@@ -111,34 +111,38 @@ std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"return"})) return return_statement();
 
     if (peek().category == Lexer::IDENTIFIER) {
-        return modular_statement();
+        std::string mod;
+        advance();
+        return modular_statement(mod);
     }
-
-    if (match({";"})) return std::make_unique<EmptyStatement>();
 
     if (match({";"})) return std::make_unique<EmptyStatement>();
 
     return expression();
 }
 
-std::unique_ptr<Parser::Node> Parser::modular_statement() {
+std::unique_ptr<Parser::Node> Parser::modular_statement(std::string &mod) {
     if (match({"."})) {
-        return modular_statement();
+        rewind();
+        mod += previous().value + ".";
+        advance();
+        return modular_statement(mod);
     }
+
+    if (match({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment(mod);
+    if (match({"("})) return function_call(mod);
 
     if (peek().category == Lexer::IDENTIFIER) {
         advance();
-        if (match({"="})) return variable_declaration();
+        if (match({"="})) return variable_declaration(true);
+        else return variable_declaration(false);
     }
-
-    if (match({"=", "+=", "-=", "*=", "/=", "%="})) return variable_assignment();
-    if (match({"("})) return function_call();
 
     return expression();
 }
 
-std::unique_ptr<Parser::Node> Parser::variable_declaration() {
-    for (int i = 0; i < 3; ++i) rewind();
+std::unique_ptr<Parser::Node> Parser::variable_declaration(const bool &initialized) {
+    for (int i = 0; i < (initialized ? 3 : 2); ++i) rewind();
     std::string type, identifier;
     if (peek().category == Lexer::IDENTIFIER) {
         type = advance().value;
@@ -150,10 +154,17 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration() {
     } else {
         error("Expected variable identifier");
     }
-    consume("=", "Expected '='");
-    auto value = expression();
-    consume(";", "Expected ';' after statement");
-    return std::make_unique<VariableDeclaration>(type, identifier, std::move(value));
+
+    if (initialized) {
+        consume("=", "Expected '='");
+        auto value = expression();
+        consume(";", "Expected ';' after statement");
+        return std::make_unique<VariableDeclaration>(type, identifier, std::move(value));
+    } else {
+        auto value = std::make_unique<EmptyStatement>();
+        consume(";", "Expected ';' after statement");
+        return std::make_unique<VariableDeclaration>(type, identifier, std::move(value));
+    }
 }
 
 std::unique_ptr<Parser::Node> Parser::function_declaration() {
@@ -214,8 +225,9 @@ std::unique_ptr<Parser::Node> Parser::class_statement() {
         advance();
         if (peek().category == Lexer::IDENTIFIER) {
             advance();
-            if (match({"="})) member->statement = variable_declaration();
-            else if (match({"("})) member->statement = function_declaration();
+            if (match({"("})) member->statement = function_declaration();
+            else if (match({"="})) member->statement = variable_declaration(true);
+            else member->statement = variable_declaration(false);
         }
     } else {
         throw std::runtime_error("Unexpected class member statement encountered: " + peek().value);
@@ -268,7 +280,7 @@ std::unique_ptr<Parser::Node> Parser::destructor_declaration() {
     return function;
 }
 
-std::unique_ptr<Parser::Node> Parser::variable_assignment() {
+std::unique_ptr<Parser::Node> Parser::variable_assignment(const std::string &mod) {
     std::string identifier = advance().value;
     std::string op;
     if (peek().category == Lexer::OPERATOR) {
@@ -343,9 +355,9 @@ std::unique_ptr<Parser::Node> Parser::return_statement() {
 }
 
 
-std::unique_ptr<Parser::Node> Parser::function_call() {
+std::unique_ptr<Parser::Node> Parser::function_call(const std::string &mod) {
     for (int i = 0; i < 2; ++i) rewind();
-    auto function = std::make_unique<FunctionCall>(advance().value);
+    auto function = std::make_unique<FunctionCall>(mod + advance().value);
     consume("(", "Expected '('");
     while (!match({")"})) {
         function->args.push_back(std::move(expression()));

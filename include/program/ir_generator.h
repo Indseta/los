@@ -20,20 +20,17 @@ public:
         STRING,
         UNKNOWN,
     };
-
     struct TypeInfo {
         TypeInfo();
         std::string name;
         IntegralType type;
         int size;
     };
-
     struct StackEntry {
         StackEntry();
         TypeInfo type;
         int offset;
     };
-
     struct StackInfo {
         StackInfo();
         std::map<std::string, StackEntry> keys;
@@ -44,7 +41,6 @@ public:
         bool exists(const std::string &id);
         void push(const std::string &id, const TypeInfo &type);
     };
-
     struct Statement {
         Statement();
         virtual void log() const;
@@ -164,6 +160,42 @@ public:
         std::string left, right;
         void log() const override;
     };
+    struct Sete : public Instruction {
+        Sete();
+        Sete(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
+    struct Setne : public Instruction {
+        Setne();
+        Setne(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
+    struct Setg : public Instruction {
+        Setg();
+        Setg(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
+    struct Setge : public Instruction {
+        Setge();
+        Setge(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
+    struct Setl : public Instruction {
+        Setl();
+        Setl(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
+    struct Setle : public Instruction {
+        Setle();
+        Setle(const std::string &dst);
+        std::string dst;
+        void log() const override;
+    };
     struct Cmove : public Instruction {
         Cmove();
         Cmove(const std::string &dst, const std::string &src);
@@ -176,8 +208,23 @@ public:
         std::string dst, src;
         void log() const override;
     };
+    struct Label : public Instruction {
+        Label(const std::string &id);
+        void log() const override;
+        std::string id;
+    };
     struct Jmp : public Instruction {
         Jmp(const std::string &dst);
+        void log() const override;
+        std::string dst;
+    };
+    struct Je : public Instruction {
+        Je(const std::string &dst);
+        void log() const override;
+        std::string dst;
+    };
+    struct Jne : public Instruction {
+        Jne(const std::string &dst);
         void log() const override;
         std::string dst;
     };
@@ -196,12 +243,21 @@ public:
         void log() const override;
     };
 
+    struct ClassInfo {
+        ClassInfo(const std::string &id);
+
+        std::string id;
+        StackInfo stack;
+        std::vector<std::unique_ptr<IRGenerator::Entry>> functions;
+    };
+
     IRGenerator(const Parser &parser);
 
     const std::vector<std::string>& get_ext_libs() const;
     const Segment& get_data() const;
     const Segment& get_bss() const;
     const Segment& get_text() const;
+    const std::vector<std::unique_ptr<Declaration>>& get_labels() const;
 
     const bool& get_success() const;
     void log() const;
@@ -211,11 +267,14 @@ private:
 
     void evaluate_global_statement(const Parser::Node *statement);
     void evaluate_function_declaration(const Parser::FunctionDeclaration *decl);
+    void evaluate_class_declaration(const Parser::ClassDeclaration *decl);
 
     void evaluate_wrapper_statement(const Parser::Node *statement, Entry *entry);
 
     void evaluate_statement(const Parser::Node *statement, Entry *entry, StackInfo &stack_info);
+    void evaluate_class_statement(const Parser::Node *statement, Entry *declarator, ClassInfo *class_info);
     void evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, const std::string &target, StackInfo &stack_info);
+    void evaluate_conditional_statement(const Parser::ConditionalStatement *statement, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_declaration(const Parser::VariableDeclaration *decl, Entry *entry, StackInfo &stack_info);
     void evaluate_variable_assignment(const Parser::VariableAssignment *assign, Entry *entry, StackInfo &stack_info);
 
@@ -229,6 +288,9 @@ private:
     void push_unique(std::unique_ptr<Declaration> decl, Segment &target);
     void add_extern(const std::string &id);
 
+    const bool is_class(const std::string &name);
+    const bool is_integral(const std::string &name);
+
     const TypeInfo get_type_info(const std::string &name);
     const TypeInfo get_type_info(const Parser::Node *expr, Entry *entry, StackInfo &stack_info);
     const std::string get_hash(const std::string &src, const std::string &prefix = "d") const;
@@ -240,11 +302,15 @@ private:
     int get_data_size(const std::string &name);
     int align_by(const int &src, const int &size);
 
-    std::unordered_map<std::string, Parser::FunctionDeclaration*> functions;
+    std::unordered_map<std::string, std::unique_ptr<ClassInfo>> classes;
     std::vector<std::string> ext_libs;
     Segment data;
     Segment bss;
     Segment text;
+
+    std::vector<std::unique_ptr<Declaration>> labels;
+
+    int cnd_ix;
 
     bool success;
 };
