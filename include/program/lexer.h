@@ -53,5 +53,7 @@ private:
 
     std::vector<Token> tokens;
 
+    int line;
+
     bool success;
 };

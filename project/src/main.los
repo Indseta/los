@@ -1,7 +1,15 @@
+module System {
+    void println(uint8 value) printf(value as string);
+    void println(uint16 value) printf(value as string);
+    void println(uint32 value) printf(value as string);
+    void println(uint64 value) printf(value as string);
+    void println(int8 value) printf(value as string);
+    void println(int16 value) printf(value as string);
+    void println(int32 value) printf(value as string);
+    void println(int64 value) printf(value as string);
+    void println(string value) printf(value);
+}
+
 void main() {
-    int32 i = 0;
-    while (i < 10) {
-        println(i as string);
-        i += 1;
-    }
+    System.println(-1 as uint16);
 }

@@ -86,18 +86,25 @@ Lexer::Lexer(const Source &source) {
 
 void Lexer::lex(const std::string &raw) {
     Token ct;
+    line = 1;
 
     for (int i = 0; i < raw.length(); ++i) {
         const char c = raw[i];
 
+        std::cout << line << '\n';
+
         // Skip whitespace
         if (std::isspace(c)) {
+            if (c == '\n') {
+                ++line;
+            }
             continue;
         }
 
         // Reset token value
         ct.category = UNKNOWN;
         ct.value = "";
+        ct.line = line;
 
         // Comments
         if (c == '/') {
@@ -106,6 +113,7 @@ void Lexer::lex(const std::string &raw) {
                     ++i;
                 }
                 ++i;
+                ++line;
                 continue;
             } else if (raw[i + 1] == '*') {
                 while (i + 1 < raw.length() && c != '*' && raw[i + 1] != '/') {

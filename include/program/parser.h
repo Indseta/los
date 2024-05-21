@@ -257,6 +257,17 @@ public:
         std::unique_ptr<Node> statement;
     };
 
+    struct Module : public Node {
+        Module() : statement(std::make_unique<EmptyStatement>()) {}
+        void log() const override {
+            std::cout << "Module: (id: '" << id << "', statement; (";
+            statement->log();
+            std::cout << "))";
+        }
+        std::string id;
+        std::unique_ptr<Node> statement;
+    };
+
     Parser(const Lexer &lexer);
     const std::vector<std::unique_ptr<Node>>& get() const;
 
@@ -285,6 +296,8 @@ private:
     std::unique_ptr<Node> global_statement();
     std::unique_ptr<Node> function_declaration();
 
+    std::unique_ptr<Node> module_declaration();
+
     std::unique_ptr<Node> class_declaration();
     std::unique_ptr<Node> class_statement();
     std::unique_ptr<Node> constructor_declaration();
@@ -311,6 +324,7 @@ private:
     std::unique_ptr<Node> primary();
 
     bool success;
+    std::string mod_prefix;
 
     [[noreturn]] void error(const std::string &msg);
 };

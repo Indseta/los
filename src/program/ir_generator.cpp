@@ -14,7 +14,9 @@ void IRGenerator::generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &
 }
 
 void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
-    if (const auto *decl = dynamic_cast<const Parser::FunctionDeclaration*>(statement)) {
+    if (const auto *mod = dynamic_cast<const Parser::Module*>(statement)) {
+        evaluate_module(mod);
+    } else if (const auto *decl = dynamic_cast<const Parser::FunctionDeclaration*>(statement)) {
         evaluate_function_declaration(decl);
     } else if (const auto *decl = dynamic_cast<const Parser::ClassDeclaration*>(statement)) {
         evaluate_class_declaration(decl);
@@ -22,6 +24,16 @@ void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
     } else {
         success = false;
         throw std::runtime_error("Unexpected global statement encountered.");
+    }
+}
+
+void IRGenerator::evaluate_module(const Parser::Module *mod) {
+    if (const auto *scope = dynamic_cast<const Parser::ScopeDeclaration*>(mod->statement.get())) {
+        for (const auto &t : scope->ast) {
+            evaluate_global_statement(t.get());
+        }
+    } else {
+        evaluate_global_statement(mod->statement.get());
     }
 }
 
@@ -252,15 +264,10 @@ void IRGenerator::evaluate_conditional_statement(const Parser::ConditionalStatem
 }
 
 void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry *entry, const std::string &target, StackInfo &stack_info) {
-    if (call->identifier == "println") {
+    if (call->identifier == "printf") {
         for (int i = 0; i < call->args.size(); ++i) {
             const auto &arg = call->args[i];
             evaluate_expr(arg.get(), entry, "rcx", stack_info);
-            // if (const auto *literal = dynamic_cast<const Parser::StringLiteral*>(arg.get())) {
-            // } else {
-            //     const auto operation = std::make_unique<Parser::CastOperation>(arg, "string");
-            //     evaluate_expr(operation.get(), entry, "rcx", stack_info);
-            // }
 
             add_extern("printf");
             entry->instructions.push_back(std::make_unique<Call>("printf"));
@@ -305,7 +312,7 @@ void IRGenerator::evaluate_function_call(const Parser::FunctionCall *call, Entry
                     entry->instructions.insert(entry->instructions.begin() + alloc_at, std::make_unique<Sub>("rsp", res_size));
                     entry->instructions.push_back(std::make_unique<Call>(identifier));
                     entry->instructions.push_back(std::make_unique<Add>("rsp", res_size));
-                    entry->instructions.push_back(std::make_unique<Mov>(target, get_registry("rax", get_data_size(decl->type))));
+                    if (decl->type != "void") entry->instructions.push_back(std::make_unique<Mov>(target, get_registry("rax", get_data_size(decl->type))));
                     return;
                 }
             }

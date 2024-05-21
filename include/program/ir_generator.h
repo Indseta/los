@@ -266,6 +266,7 @@ private:
     void generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &ast);
 
     void evaluate_global_statement(const Parser::Node *statement);
+    void evaluate_module(const Parser::Module *mod);
     void evaluate_function_declaration(const Parser::FunctionDeclaration *decl);
     void evaluate_class_declaration(const Parser::ClassDeclaration *decl);
 

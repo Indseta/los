@@ -2,6 +2,7 @@
 
 Parser::Parser(const Lexer &lexer) : tokens(lexer.get()) {
     success = true;
+    mod_prefix = "";
 
     parse();
 }
@@ -89,10 +90,11 @@ const Lexer::Token& Parser::consume(const std::string& type, const std::string& 
 
 void Parser::error(const std::string &msg) {
     success = false;
-    throw std::runtime_error(msg);
+    throw std::runtime_error("[Line " + std::to_string(peek().line) + "] " + msg);
 }
 
 std::unique_ptr<Parser::Node> Parser::global_statement() {
+    if (match({"module"})) return module_declaration();
     if (match({"class"})) return class_declaration();
     if (peek().category == Lexer::IDENTIFIER) {
         advance();
@@ -111,7 +113,7 @@ std::unique_ptr<Parser::Node> Parser::statement() {
     if (match({"return"})) return return_statement();
 
     if (peek().category == Lexer::IDENTIFIER) {
-        std::string mod;
+        std::string mod = "";
         advance();
         return modular_statement(mod);
     }
@@ -125,6 +127,7 @@ std::unique_ptr<Parser::Node> Parser::modular_statement(std::string &mod) {
     if (match({"."})) {
         rewind();
         mod += previous().value + ".";
+        advance();
         advance();
         return modular_statement(mod);
     }
@@ -147,12 +150,12 @@ std::unique_ptr<Parser::Node> Parser::variable_declaration(const bool &initializ
     if (peek().category == Lexer::IDENTIFIER) {
         type = advance().value;
     } else {
-        error("Expected variable type");
+        error("Expected variable type, not '" + peek().value + "'");
     }
     if (peek().category == Lexer::IDENTIFIER) {
         identifier = advance().value;
     } else {
-        error("Expected variable identifier");
+        error("Expected variable type, not '" + peek().value + "'");
     }
 
     if (initialized) {
@@ -176,7 +179,7 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
         error("Expected function type");
     }
     if (peek().category == Lexer::IDENTIFIER) {
-        function->identifier = advance().value;
+        function->identifier = mod_prefix + advance().value;
     } else {
         error("Expected function identifer");
     }
@@ -191,6 +194,23 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
     consume(")", "Expected ')' after statement");
     function->statement = std::move(statement());
     return function;
+}
+
+std::unique_ptr<Parser::Node> Parser::module_declaration() {
+    auto mod = std::make_unique<Module>();
+    mod->id = advance().value;
+    mod_prefix += mod->id + ".";
+    if (match({"{"})) {
+        auto scope = std::make_unique<ScopeDeclaration>();
+        while (!match({"}"})) {
+            scope->ast.push_back(std::move(global_statement()));
+        }
+        mod->statement = std::move(scope);
+    } else {
+        mod->statement = std::move(global_statement());
+    }
+    mod_prefix = "";
+    return mod;
 }
 
 std::unique_ptr<Parser::Node> Parser::class_declaration() {
