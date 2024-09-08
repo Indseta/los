@@ -1,15 +1,9 @@
 #include <program/compiler.h>
 
-Compiler::Compiler(const IRGenerator &ir_generator, const std::string &org) {
-    fp = "";
-    for (const auto &c : org) {
-        if (c == '/') fp += '\\';
-        else fp += c;
-    }
-
+Compiler::Compiler(const IRGenerator &ir_generator, const std::string &src) {
     success = true;
 
-    file_stream.open(fp + ".asm");
+    file_stream.open(src + ".asm");
 
     if (!file_stream.is_open()) {
         success = false;
@@ -20,30 +14,19 @@ Compiler::Compiler(const IRGenerator &ir_generator, const std::string &org) {
 
     file_stream.close();
 
-    if (run_cmd("nasm.exe -f win64 -g -o " + fp + ".o " + fp + ".asm")) {
+    if (Utils::run_cmd("nasm.exe -f win64 -g -o " + src + ".o " + src + ".asm")) {
         std::cout << "Assembly failed." << '\n';
         success = false;
         return;
     }
 
-    if (run_cmd("gcc.exe -m64 -g " + fp + ".o -o " + fp)) {
-        std::cout << "Linking failed." << '\n';
-        success = false;
-        return;
-    }
-
-    run_cmd("del \"" + fp + ".o\"");
-    // run_cmd("del \"" + fp + ".asm\"");
+    Utils::run_cmd("del \"" + src + ".asm\"");
 }
 
 Compiler::~Compiler() {
     if (file_stream.is_open()) {
         file_stream.close();
     }
-}
-
-void Compiler::run() {
-    run_cmd("call \"" + fp + ".exe\"");
 }
 
 void Compiler::compile(const IRGenerator &ir_generator) {
@@ -157,10 +140,6 @@ void Compiler::compile_instruction(const IRGenerator::Instruction *instruction) 
     } else if (const auto *call_instr = dynamic_cast<const IRGenerator::Call*>(instruction)) {
         file_stream << '\t' << "call " << call_instr->id << '\n';
     }
-}
-
-int Compiler::run_cmd(const std::string &cmd) {
-    return system(cmd.c_str());
 }
 
 const bool& Compiler::get_success() const {

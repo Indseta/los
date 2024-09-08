@@ -91,8 +91,6 @@ void Lexer::lex(const std::string &raw) {
     for (int i = 0; i < raw.length(); ++i) {
         const char c = raw[i];
 
-        std::cout << line << '\n';
-
         // Skip whitespace
         if (std::isspace(c)) {
             if (c == '\n') {

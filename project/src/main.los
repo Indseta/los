@@ -1,15 +1,5 @@
-module System {
-    void println(uint8 value) printf(value as string);
-    void println(uint16 value) printf(value as string);
-    void println(uint32 value) printf(value as string);
-    void println(uint64 value) printf(value as string);
-    void println(int8 value) printf(value as string);
-    void println(int16 value) printf(value as string);
-    void println(int32 value) printf(value as string);
-    void println(int64 value) printf(value as string);
-    void println(string value) printf(value);
-}
+use system.lib;
 
 void main() {
-    System.println(-1 as uint16);
+    System.println("Hello world");
 }

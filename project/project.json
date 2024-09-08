@@ -5,8 +5,8 @@
         "version": "1.0.0"
     },
     "detail": {
-        "src": "./src/main",
-        "out": "./bin/main",
+        "src": "./src/",
+        "out": "./bin/",
         "worker": 0
     },
     "libs": [

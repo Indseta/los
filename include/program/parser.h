@@ -1,5 +1,6 @@
 #pragma once
 
+#include <program/env.h>
 #include <program/lexer.h>
 
 #include <cstdint>
@@ -257,6 +258,14 @@ public:
         std::unique_ptr<Node> statement;
     };
 
+    struct Extern : public Node {
+        Extern(const std::string &id) : id(id) {}
+        void log() const override {
+            std::cout << "Extern: (id: '" << id << "')";
+        }
+        std::string id;
+    };
+
     struct Module : public Node {
         Module() : statement(std::make_unique<EmptyStatement>()) {}
         void log() const override {
@@ -290,12 +299,12 @@ private:
     const Lexer::Token& consume(const std::string& type, const std::string& message);
 
     bool match(const std::initializer_list<std::string> &values);
-    bool match_next(const std::initializer_list<std::string> &values);
-    bool match_key();
 
+    std::unique_ptr<Node> flag_statement();
     std::unique_ptr<Node> global_statement();
     std::unique_ptr<Node> function_declaration();
 
+    std::unique_ptr<Node> extern_declaration();
     std::unique_ptr<Node> module_declaration();
 
     std::unique_ptr<Node> class_declaration();

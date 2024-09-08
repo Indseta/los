@@ -1,0 +1,11 @@
+module System {
+    public void println(uint8 value) printf(value as string);
+    public void println(uint16 value) printf(value as string);
+    public void println(uint32 value) printf(value as string);
+    public void println(uint64 value) printf(value as string);
+    public void println(int8 value) printf(value as string);
+    public void println(int16 value) printf(value as string);
+    public void println(int32 value) printf(value as string);
+    public void println(int64 value) printf(value as string);
+    public void println(string value) printf(value);
+}

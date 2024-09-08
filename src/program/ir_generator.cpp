@@ -14,7 +14,9 @@ void IRGenerator::generate_ir(const std::vector<std::unique_ptr<Parser::Node>> &
 }
 
 void IRGenerator::evaluate_global_statement(const Parser::Node *statement) {
-    if (const auto *mod = dynamic_cast<const Parser::Module*>(statement)) {
+    if (const auto *lib = dynamic_cast<const Parser::Extern*>(statement)) {
+        std::cout << lib->id << '\n';
+    } else if (const auto *mod = dynamic_cast<const Parser::Module*>(statement)) {
         evaluate_module(mod);
     } else if (const auto *decl = dynamic_cast<const Parser::FunctionDeclaration*>(statement)) {
         evaluate_function_declaration(decl);

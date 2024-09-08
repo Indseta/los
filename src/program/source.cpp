@@ -6,12 +6,12 @@ Source::Source(const std::string &fp) {
 }
 
 void Source::read_source(const std::string &fp) {
-    std::ifstream file(fp + ".los");
+    std::ifstream file(fp);
 
     if (file.is_open()) {
         success = true;
     } else {
-        std::cerr << "Failed to open file" << '\n';
+        std::cerr << "Failed to open file '" << fp << "'" << '\n';
         return;
     }
 

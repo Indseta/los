@@ -9,6 +9,11 @@ Parser::Parser(const Lexer &lexer) : tokens(lexer.get()) {
 
 void Parser::parse() {
     std::vector<std::unique_ptr<Node>> statements;
+    while (match({"use"})) {
+        rewind();
+        statements.push_back(std::move(flag_statement()));
+    }
+
     while (!at_end()) {
         statements.push_back(std::move(global_statement()));
     }
@@ -55,33 +60,6 @@ bool Parser::match(const std::initializer_list<std::string> &values) {
     return false;
 }
 
-bool Parser::match_next(const std::initializer_list<std::string> &values) {
-    for (const std::string &type : values) {
-        if (next().value == type) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool Parser::match_key() {
-    if (peek().category == Lexer::IDENTIFIER) {
-        advance();
-        return true;
-    }
-
-    if (peek().category == Lexer::KEYWORD) {
-        for (const auto &value : {"uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32", "int64", "float8", "float16", "float32", "float64", "bool", "string", "vector", "ptr", "ref"}) {
-            if (peek().value == value) {
-                advance();
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 const Lexer::Token& Parser::consume(const std::string& type, const std::string& message) {
     if (peek().value == type) return tokens[current++];
 
@@ -93,7 +71,13 @@ void Parser::error(const std::string &msg) {
     throw std::runtime_error("[Line " + std::to_string(peek().line) + "] " + msg);
 }
 
+std::unique_ptr<Parser::Node> Parser::flag_statement() {
+    if (match({"use"})) return extern_declaration();
+    throw std::runtime_error("Unexpected flag statement encountered.");
+}
+
 std::unique_ptr<Parser::Node> Parser::global_statement() {
+    if (match({"use"})) return extern_declaration();
     if (match({"module"})) return module_declaration();
     if (match({"class"})) return class_declaration();
     if (peek().category == Lexer::IDENTIFIER) {
@@ -194,6 +178,15 @@ std::unique_ptr<Parser::Node> Parser::function_declaration() {
     consume(")", "Expected ')' after statement");
     function->statement = std::move(statement());
     return function;
+}
+
+std::unique_ptr<Parser::Node> Parser::extern_declaration() {
+    std::string path = "";
+    while (!match({";"})) {
+        path += peek().value;
+        advance();
+    }
+    return std::make_unique<Extern>(path);
 }
 
 std::unique_ptr<Parser::Node> Parser::module_declaration() {
