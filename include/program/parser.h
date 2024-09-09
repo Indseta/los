@@ -1,14 +1,14 @@
 #pragma once
 
-#include <program/env.h>
-#include <program/lexer.h>
-
 #include <cstdint>
 #include <iostream>
 #include <unordered_map>
 #include <memory>
 #include <set>
 #include <vector>
+
+#include <program/env.h>
+#include <program/lexer.h>
 
 class Parser {
 public:

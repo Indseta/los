@@ -14,7 +14,7 @@ Env& Env::get_instance() {
 }
 
 void Env::build() {
-    if (sys_env == SYSTEM_WIN64) {
+    if (system == SYSTEM_WIN64) {
         const nlohmann::json project = Utils::read_json("project.json");
 
         std::string src_dir = project["detail"]["src"].get<std::string>();
@@ -28,11 +28,8 @@ void Env::build() {
 
         const auto sources = Utils::get_sources(src_dir);
 
-        for (const auto &src_id : sources) {
-            Object *object = new Object(src_id, obj_dir);
-            object->build();
-
-            registry.push_object(src_id, object);
+        for (const auto &id : sources) {
+            request(id);
         }
 
         // link
@@ -54,7 +51,7 @@ void Env::build() {
 }
 
 void Env::run() {
-    if (sys_env == SYSTEM_WIN64) {
+    if (system == SYSTEM_WIN64) {
         const nlohmann::json project = Utils::read_json("project.json");
         std::string id = project["project"]["id"].get<std::string>();
         std::string obj_dir = project["detail"]["out"].get<std::string>();

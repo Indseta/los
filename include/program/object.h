@@ -5,11 +5,12 @@
 #include <chrono>
 #include <iostream>
 
-#include <program/source.h>
-#include <program/lexer.h>
-#include <program/parser.h>
-#include <program/ir_generator.h>
-#include <program/compiler.h>
+#include <config/source.fwd.h>
+#include <config/lexer.fwd.h>
+#include <config/parser.fwd.h>
+#include <config/compiler.fwd.h>
+#include <config/ir_generator.fwd.h>
+
 #include <program/utils.h>
 
 class Object {

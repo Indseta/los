@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <vector>
 
-#define NLOG
 #include <program/env.h>
 #include <program/utils.h>
 

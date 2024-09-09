@@ -3,16 +3,14 @@
 #include <unordered_map>
 #include <stdexcept>
 
-#include <config/env.fwd.h>
-
 #include <program/object.h>
 #include <program/utils.h>
 
 class Env {
 private:
     enum System {
-        SYSTEM_WIN64,
         SYSTEM_WIN32,
+        SYSTEM_WIN64,
         SYSTEM_LINUX,
         SYSTEM_APPLE,
         SYSTEM_UNKNOWN,
@@ -20,16 +18,16 @@ private:
 
 #if _WIN32
 #if defined(_WIN64)
-    static const System sys_env = SYSTEM_WIN64;
+    static const System system = SYSTEM_WIN64;
 #else
-    static const System sys_env = SYSTEM_WIN32;
+    static const System system = SYSTEM_WIN32;
 #endif
 #elif __linux__
-    static const System sys_env = SYSTEM_LINUX;
+    static const System system = SYSTEM_LINUX;
 #elif __APPLE__
-static const System sys_env = SYSTEM_APPLE;
+    static const System system = SYSTEM_APPLE;
 #else
-    static const System sys_env = SYSTEM_UNKNOWN;
+    static const System system = SYSTEM_UNKNOWN;
 #endif
 
     struct Registry {

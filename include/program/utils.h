@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <config/env.fwd.h>
-
 #include <nlohmann/json.hpp>
 #include <whereami/whereami.h>
 
